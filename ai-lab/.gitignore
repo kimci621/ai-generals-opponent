@@ -1,0 +1,5 @@
+engine/
+data/
+runs/
+*.app
+.DS_Store
