@@ -54,6 +54,9 @@ class MatchTest(unittest.TestCase):
         self.assertEqual(r.winner_slot, 0)
         self.assertEqual(r.structures_at_start, (1, 1))
         self.assertEqual(r.structures_at_2min, (5, 6))
+        self.assertEqual((r.derricks_on_map, r.tech_on_map), (4, 6))
+        self.assertEqual(r.derricks, ((1, 2, 3), (0, 1, None)))
+        self.assertEqual(r.tech, ((1, 2, 4), (0, 1, 1)))
         self.assertIsInstance(r.final_crc, int)
         self.assertIsNone(r.run_dir)
 

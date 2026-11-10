@@ -20,8 +20,8 @@ case "${FAKE_MODE:-win}" in
 esac
 read A B <<< "${S2//,/}"
 cat > "$RESULT" <<JSON
-{"schema": 1, "seed": $SEED, "map": "m", "outcome": "$OUT", "end_frame": 54321, "game_seconds": $T,
- "final_crc": 2882400001,
- "players": [{"slot": 0, "faction": "FactionGLA", "difficulty": "hard", "won": $W0, "structures_at_start": 1, "structures_at_2min": $A},
-             {"slot": 1, "faction": "FactionAmerica", "difficulty": "hard", "won": false, "structures_at_start": 1, "structures_at_2min": $B}]}
+{"schema": 2, "seed": $SEED, "map": "m", "outcome": "$OUT", "end_frame": 54321, "game_seconds": $T,
+ "final_crc": 2882400001, "derricks_on_map": 4, "tech_on_map": 6,
+ "players": [{"slot": 0, "faction": "FactionGLA", "difficulty": "hard", "won": $W0, "structures_at_start": 1, "structures_at_2min": $A, "derricks": [1, 2, 3], "tech_buildings": [1, 2, 4]},
+             {"slot": 1, "faction": "FactionAmerica", "difficulty": "hard", "won": false, "structures_at_start": 1, "structures_at_2min": $B, "derricks": [0, 1, null], "tech_buildings": [0, 1, 1]}]}
 JSON

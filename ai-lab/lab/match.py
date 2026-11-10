@@ -40,6 +40,11 @@ class MatchResult:
     structures_at_2min: tuple[int | None, ...]
     final_crc: int | None
     run_dir: Path | None
+    # нефтевышки и все техздания: на карте при старте; у каждого игрока [5 мин, 10 мин, конец]
+    derricks_on_map: int | None = None
+    derricks: tuple[tuple[int | None, ...], ...] = ()
+    tech_on_map: int | None = None
+    tech: tuple[tuple[int | None, ...], ...] = ()
 
 
 # живые движки: Popen -> убит ли через kill_all
@@ -120,4 +125,6 @@ def run_match(cfg: MatchConfig, *, root: Path, app: Path, runs_dir: Path,
     return MatchResult(cfg, status, winners[0] if len(winners) == 1 else None, data["game_seconds"], wall,
                        tuple(p["structures_at_start"] for p in players),
                        tuple(p["structures_at_2min"] for p in players),
-                       data["final_crc"], run)
+                       data["final_crc"], run,
+                       data.get("derricks_on_map"), tuple(tuple(p.get("derricks", ())) for p in players),
+                       data.get("tech_on_map"), tuple(tuple(p.get("tech_buildings", ())) for p in players))

@@ -19,7 +19,8 @@ LAB = Path(__file__).resolve().parents[1]
 
 CSV_COLUMNS = ["seed", "variant", "map", "factions", "difficulties", "status",
                "winner_slot", "winner_faction", "game_seconds", "wall_seconds",
-               "structures_at_start", "structures_at_2min", "final_crc", "run_dir"]
+               "structures_at_start", "structures_at_2min", "final_crc", "run_dir",
+               "derricks_on_map", "derricks_5min", "derricks_10min", "derricks_end", "tech_on_map", "tech_end"]
 
 
 def make_configs(map: str, players: tuple[PlayerSpec, ...], variant: str,
@@ -42,7 +43,10 @@ def _row(r: MatchResult) -> list:
             r.status, "" if r.winner_slot is None else r.winner_slot, winner,
             "" if r.game_seconds is None else r.game_seconds, round(r.wall_seconds, 1),
             _join(r.structures_at_start), _join(r.structures_at_2min),
-            "" if r.final_crc is None else r.final_crc, r.run_dir or ""]
+            "" if r.final_crc is None else r.final_crc, r.run_dir or "",
+            "" if r.derricks_on_map is None else r.derricks_on_map,
+            *(_join(p[k] if len(p) > k else None for p in r.derricks) for k in range(3)),
+            "" if r.tech_on_map is None else r.tech_on_map, _join(p[2] if len(p) > 2 else None for p in r.tech)]
 
 
 def run_series(cfgs: list[MatchConfig], *, root: Path, app: Path, out_csv: Path,

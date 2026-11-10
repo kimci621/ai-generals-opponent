@@ -1,0 +1,8 @@
+android-commandlinetools
+blender
+blockblock
+docker-desktop
+font-monaspace
+ghostty
+knockknock
+puremac

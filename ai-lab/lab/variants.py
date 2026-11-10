@@ -8,6 +8,8 @@ from pathlib import Path
 VARIANTS: dict[str, Path | None] = {
     "vanilla": None,
     "improved_ai": Path("Mods/ImprovedAI_1.2/Data"),
+    "improved_ai_gla": Path("Mods/ImprovedAI_GLA/Data"),
+    "improved_ai_plus": Path("Mods/ImprovedAI_Plus/Data"),
 }
 
 _lock = threading.Lock()

@@ -58,6 +58,9 @@ class SeriesTest(unittest.TestCase):
         self.assertEqual(got[1]["winner_faction"], "FactionGLA")
         self.assertEqual(got[2]["winner_faction"], "FactionAmerica")
         self.assertEqual(got[2]["factions"], "FactionAmerica|FactionGLA")
+        self.assertEqual(got[1]["derricks_on_map"], "4")
+        self.assertEqual([got[1][k] for k in ("derricks_5min", "derricks_10min", "derricks_end")], ["1|0", "2|1", "3|"])
+        self.assertEqual(got[1]["tech_end"], "4|1")
 
     def test_failed_matches_recorded(self):
         self.series("crash", 2)
