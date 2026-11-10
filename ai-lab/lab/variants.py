@@ -13,6 +13,7 @@ VARIANTS: dict[str, Path | None] = {
 }
 
 _lock = threading.Lock()
+SCB = Path("Scripts/SkirmishScripts.scb")
 
 
 def ensure_variant(name: str, root: Path) -> Path:
@@ -42,3 +43,22 @@ def ensure_variant(name: str, root: Path) -> Path:
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
         return dst
+
+
+def player_scripts(name: str, base: str, root: Path) -> Path:
+    """SkirmishScripts.scb варианта name для одного игрока в матче на данных варианта base.
+
+    Движок подменяет игроку только .scb, INI у всех общие (из base). Поэтому варианты
+    должны отличаться только этим файлом, иначе сравнение нечестное."""
+    def overlay(v: str) -> dict[str, bytes]:
+        if v not in VARIANTS:
+            raise ValueError(f"неизвестный вариант: {v}")
+        src = VARIANTS[v]
+        if src is None:
+            return {}
+        d = root / src
+        return {str(p.relative_to(d)): p.read_bytes() for p in d.rglob("*")
+                if p.is_file() and p.name != ".DS_Store" and p.relative_to(d) != SCB}
+    if overlay(name) != overlay(base):
+        raise ValueError(f"варианты {name} и {base} отличаются не только {SCB}, свой .scb на игрока не подойдёт")
+    return ensure_variant(name, root) / "Data" / SCB

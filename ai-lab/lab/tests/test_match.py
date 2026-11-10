@@ -48,6 +48,13 @@ class MatchTest(unittest.TestCase):
         self.assertEqual(args[args.index("-aiResult") + 1], "/r/result.json")
         self.assertNotIn("-seed", args)
 
+    def test_engine_args_own_scripts(self):
+        c = cfg(variant="improved_ai", players=(PlayerSpec("FactionGLA", "hard", "improved_ai"), PLAYERS[1]))
+        args = engine_args(c, Path("/r/result.json"), self.root)
+        scb = self.root / "ai-lab/data/improved_ai/Data/Scripts/SkirmishScripts.scb"
+        i = args.index("-aiPlayer")
+        self.assertEqual(args[i:i + 4], ["-aiPlayer", f"FactionGLA:hard:{scb}", "-aiPlayer", "FactionAmerica:hard"])
+
     def test_win_parsed(self):
         r = self.run_fake("win")
         self.assertEqual(r.status, "win")

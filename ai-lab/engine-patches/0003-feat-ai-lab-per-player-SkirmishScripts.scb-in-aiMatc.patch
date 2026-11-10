@@ -1,0 +1,346 @@
+From b3a644b051a6c1f33552122bd1795fa3b0e98044 Mon Sep 17 00:00:00 2001
+From: Amir Latipov <kimciwork@gmail.com>
+Date: Tue, 10 Nov 2026 16:02:42 +0300
+Subject: [PATCH 3/3] feat(ai-lab): per-player SkirmishScripts.scb in -aiMatch
+
+-aiPlayer Faction:difficulty[:path.scb] gives one AI player its own skirmish
+scripts and teams. Player::initFromDict swaps the skirmish templates for the
+file's ones while copying, then restores the shared ones. Scb file loading is
+moved out of SidesList::prepareForMP_or_Skirmish unchanged. Result JSON
+schema 3 adds per-player "scripts".
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ Core/GameEngine/Include/Common/AIMatch.h      |   8 +-
+ Core/GameEngine/Include/GameLogic/SidesList.h |  10 ++
+ Core/GameEngine/Source/Common/AIMatch.cpp     |  33 ++++-
+ .../Source/GameLogic/Map/SidesList.cpp        | 122 +++++++++++-------
+ .../GameEngine/Source/Common/RTS/Player.cpp   |  20 +++
+ 5 files changed, 141 insertions(+), 52 deletions(-)
+
+diff --git a/Core/GameEngine/Include/Common/AIMatch.h b/Core/GameEngine/Include/Common/AIMatch.h
+index fa9a550..b683e1b 100644
+--- a/Core/GameEngine/Include/Common/AIMatch.h
++++ b/Core/GameEngine/Include/Common/AIMatch.h
+@@ -8,7 +8,7 @@
+ */
+ 
+ // GeneralsX @feature ai-lab 07/11/2026 Headless AI-vs-AI skirmish match for the AI test range.
+-// Usage: -headless -aiMatch -aiMap <map> -aiPlayer <Faction>:<easy|medium|hard> (one per slot)
++// Usage: -headless -aiMatch -aiMap <map> -aiPlayer <Faction>:<easy|medium|hard>[:<SkirmishScripts.scb>] (one per slot)
+ //        -aiSeed <n> -aiCash <n> -aiMaxMinutes <n> -aiResult <path.json>
+ // Exit codes: 0 match played out (win, draw or time limit), 2 bad arguments, 3 could not start.
+ 
+@@ -20,7 +20,8 @@ struct AIMatchOptions
+ {
+ 	Bool enabled = FALSE;
+ 	AsciiString map;
+-	std::vector<AsciiString> players;   // "FactionGLA:hard"
++	std::vector<AsciiString> players;   // "FactionGLA:hard" or "FactionGLA:hard:/path/SkirmishScripts.scb"
++	std::vector<AsciiString> scripts;   // per slot, filled by run(); empty = shared Data\Scripts\SkirmishScripts.scb
+ 	Int seed = -1;
+ 	Int cash = 10000;
+ 	Int maxMinutes = 90;
+@@ -33,6 +34,9 @@ namespace AIMatch
+ {
+ 	int run();   // process exit code
+ 
++	// Own SkirmishScripts.scb of a skirmish player ("player<slot>"), empty if it uses the shared one
++	AsciiString skirmishScriptsFor(const AsciiString &playerName);
++
+ 	// Debug trace for the AI test range: AI_LAB_TRACE=<substring of a script or team name>.
+ 	// Lines go to stderr with the logic frame. Read-only, does not affect the simulation.
+ 	Bool traceWanted(const char *name);
+diff --git a/Core/GameEngine/Include/GameLogic/SidesList.h b/Core/GameEngine/Include/GameLogic/SidesList.h
+index 5cb5815..ae74dc6 100644
+--- a/Core/GameEngine/Include/GameLogic/SidesList.h
++++ b/Core/GameEngine/Include/GameLogic/SidesList.h
+@@ -187,6 +187,16 @@ public:
+ 		MAX_SKIRMISH_SIDES = 64
+ 	};
+ 
++	// GeneralsX @feature ai-lab 10/11/2026 Per-player SkirmishScripts.scb for -aiMatch (see Player::initFromDict).
++	struct SkirmishScriptsBackup
++	{
++		ScriptList *lists[MAX_SKIRMISH_SIDES];
++		TeamsInfoRec teams;
++	};
++	Bool loadSkirmishScriptsFile(const AsciiString& path);
++	Bool swapInSkirmishScripts(const AsciiString& path, SkirmishScriptsBackup& backup);
++	void restoreSkirmishScripts(SkirmishScriptsBackup& backup);
++
+ protected:
+ 
+ 	// snapshot methods
+diff --git a/Core/GameEngine/Source/Common/AIMatch.cpp b/Core/GameEngine/Source/Common/AIMatch.cpp
+index 331e13b..f2e3fea 100644
+--- a/Core/GameEngine/Source/Common/AIMatch.cpp
++++ b/Core/GameEngine/Source/Common/AIMatch.cpp
+@@ -177,6 +177,15 @@ void traceTeamsAndUpgrades(size_t n, std::vector<Int> &hadCapture)
+ }
+ } // namespace
+ 
++AsciiString AIMatch::skirmishScriptsFor(const AsciiString &playerName)
++{
++	const std::vector<AsciiString> &scripts = TheAIMatchOptions.scripts;
++	Int slot = -1;
++	if (!TheAIMatchOptions.enabled || sscanf(playerName.str(), "player%d", &slot) != 1 || slot < 0 || slot >= (Int)scripts.size())
++		return AsciiString::TheEmptyString;
++	return scripts[slot];
++}
++
+ int AIMatch::run()
+ {
+ 	const AIMatchOptions &o = TheAIMatchOptions;
+@@ -199,10 +208,23 @@ int AIMatch::run()
+ 		const char *spec = o.players[i].str();
+ 		const char *colon = strchr(spec, ':');
+ 		if (!colon)
+-			return fail(2, "bad -aiPlayer '%s', expected Faction:difficulty", spec);
++			return fail(2, "bad -aiPlayer '%s', expected Faction:difficulty[:scripts.scb]", spec);
+ 		AsciiString faction;
+ 		faction.set(spec, (Int)(colon - spec));
+-		AsciiString difficulty(colon + 1);
++		const char *colon2 = strchr(colon + 1, ':');
++		AsciiString difficulty, scripts;
++		if (colon2)
++		{
++			difficulty.set(colon + 1, (Int)(colon2 - colon - 1));
++			scripts = colon2 + 1;
++			FILE *sf = fopen(scripts.str(), "rb");
++			if (!sf)
++				return fail(3, "cannot open skirmish scripts '%s'", scripts.str());
++			fclose(sf);
++		}
++		else
++			difficulty = colon + 1;
++		TheAIMatchOptions.scripts.push_back(scripts);
+ 		SlotState state;
+ 		if (difficulty == "easy") state = SLOT_EASY_AI;
+ 		else if (difficulty == "medium") state = SLOT_MED_AI;
+@@ -345,7 +367,7 @@ int AIMatch::run()
+ 	FILE *f = fopen(tmpPath.c_str(), "w");
+ 	if (!f)
+ 		return fail(3, "cannot write '%s'", tmpPath.c_str());
+-	fprintf(f, "{\"schema\": 2, \"seed\": %d, \"map\": \"%s\", \"outcome\": \"%s\", \"end_frame\": %u, "
++	fprintf(f, "{\"schema\": 3, \"seed\": %d, \"map\": \"%s\", \"outcome\": \"%s\", \"end_frame\": %u, "
+ 		"\"game_seconds\": %.1f, \"final_crc\": %u, \"derricks_on_map\": %s, \"tech_on_map\": %s, \"players\": [",
+ 		seed, jsonEscape(o.map.str()).c_str(), outcome, endFrame,
+ 		(double)endFrame / LOGICFRAMES_PER_SECOND, crc, jsonIntOrNull(derricksOnMap).c_str(), jsonIntOrNull(techOnMap).c_str());
+@@ -355,10 +377,11 @@ int AIMatch::run()
+ 		if (at2min[i] < 0) strcpy(at2, "null"); else snprintf(at2, sizeof(at2), "%d", at2min[i]);
+ 		fprintf(f, "%s{\"slot\": %d, \"faction\": \"%s\", \"difficulty\": \"%s\", \"won\": %s, "
+ 			"\"structures_at_start\": %d, \"structures_at_2min\": %s, "
+-			"\"derricks\": [%s, %s, %s], \"tech_buildings\": [%s, %s, %s]}",
++			"\"derricks\": [%s, %s, %s], \"tech_buildings\": [%s, %s, %s], \"scripts\": %s}",
+ 			i ? ", " : "", (int)i, factions[i].str(), difficulties[i].str(), won[i] ? "true" : "false", atStart[i], at2,
+ 			jsonIntOrNull(derricks[i][0]).c_str(), jsonIntOrNull(derricks[i][1]).c_str(), jsonIntOrNull(derricks[i][2]).c_str(),
+-			jsonIntOrNull(tech[i][0]).c_str(), jsonIntOrNull(tech[i][1]).c_str(), jsonIntOrNull(tech[i][2]).c_str());
++			jsonIntOrNull(tech[i][0]).c_str(), jsonIntOrNull(tech[i][1]).c_str(), jsonIntOrNull(tech[i][2]).c_str(),
++			o.scripts[i].isEmpty() ? "null" : ("\"" + jsonEscape(o.scripts[i].str()) + "\"").c_str());
+ 	}
+ 	fprintf(f, "]}\n");
+ 	fflush(f);
+diff --git a/Core/GameEngine/Source/GameLogic/Map/SidesList.cpp b/Core/GameEngine/Source/GameLogic/Map/SidesList.cpp
+index 3607bd9..0ea1424 100644
+--- a/Core/GameEngine/Source/GameLogic/Map/SidesList.cpp
++++ b/Core/GameEngine/Source/GameLogic/Map/SidesList.cpp
+@@ -540,66 +540,98 @@ void SidesList::prepareForMP_or_Skirmish()
+ 		fflush(stderr);
+ #endif
+ 		DEBUG_LOG(("Skirmish map using standard scripts"));
+-		m_skirmishTeamrec.clear();
+-		CachedFileInputStream theInputStream;
+-		if (theInputStream.open(path)) {
++		// GeneralsX @feature ai-lab 10/11/2026 File loading moved to loadSkirmishScriptsFile (reused for per-player scripts in -aiMatch).
++		loadSkirmishScriptsFile(path);
++	}
++}
++
++// GeneralsX @feature ai-lab 10/11/2026 Read a SkirmishScripts.scb into the skirmish side templates and skirmish teams.
++// Body moved unchanged from prepareForMP_or_Skirmish. Returns false if the file is missing or broken.
++Bool SidesList::loadSkirmishScriptsFile(const AsciiString& path)
++{
++	m_skirmishTeamrec.clear();
++	CachedFileInputStream theInputStream;
++	if (theInputStream.open(path)) {
+ #ifdef ALLOW_DEBUG_UTILS
+-				fprintf(stderr, "[SKIRMISH_DIAG] Opened SkirmishScripts.scb successfully\n");
+-				fflush(stderr);
++			fprintf(stderr, "[SKIRMISH_DIAG] Opened SkirmishScripts.scb successfully\n");
++			fflush(stderr);
+ #endif
+-				ChunkInputStream *pStrm = &theInputStream;
+-				DataChunkInput file( pStrm );
+-				file.registerParser( "PlayerScriptsList", AsciiString::TheEmptyString, ScriptList::ParseScriptsDataChunk );
+-				file.registerParser( "ScriptsPlayers", AsciiString::TheEmptyString, ParsePlayersDataChunk );
+-				file.registerParser( "ScriptTeams", AsciiString::TheEmptyString, ParseTeamsDataChunk );
+-				if (!file.parse(this)) {
++			ChunkInputStream *pStrm = &theInputStream;
++			DataChunkInput file( pStrm );
++			file.registerParser( "PlayerScriptsList", AsciiString::TheEmptyString, ScriptList::ParseScriptsDataChunk );
++			file.registerParser( "ScriptsPlayers", AsciiString::TheEmptyString, ParsePlayersDataChunk );
++			file.registerParser( "ScriptTeams", AsciiString::TheEmptyString, ParseTeamsDataChunk );
++			if (!file.parse(this)) {
+ #ifdef ALLOW_DEBUG_UTILS
+-					fprintf(stderr, "[SKIRMISH_DIAG] ERROR parsing SkirmishScripts.scb\n");
+-					fflush(stderr);
++				fprintf(stderr, "[SKIRMISH_DIAG] ERROR parsing SkirmishScripts.scb\n");
++				fflush(stderr);
+ #endif
+-					DEBUG_LOG(("ERROR - Unable to read in skirmish scripts."));
+-					return;
+-				}
+-				ScriptList *scripts[MAX_PLAYER_COUNT];
+-				Int count = ScriptList::getReadScripts(scripts);
++				DEBUG_LOG(("ERROR - Unable to read in skirmish scripts."));
++				return false;
++			}
++			ScriptList *scripts[MAX_PLAYER_COUNT];
++			Int count = ScriptList::getReadScripts(scripts);
+ #ifdef ALLOW_DEBUG_UTILS
+-				fprintf(stderr, "[SKIRMISH_DIAG] Parsed SkirmishScripts.scb scriptCount=%d\n", count);
+-				fflush(stderr);
++			fprintf(stderr, "[SKIRMISH_DIAG] Parsed SkirmishScripts.scb scriptCount=%d\n", count);
++			fflush(stderr);
+ #endif
+-				Int i;
+-				for (i=0; i<count; i++) {
+-					Int curSide = -1;
+-					Int j;
+-					for (j=0; j<m_numSkirmishSides; j++) {
++			Int i;
++			for (i=0; i<count; i++) {
++				Int curSide = -1;
++				Int j;
++				for (j=0; j<m_numSkirmishSides; j++) {
+  						AsciiString name = getSkirmishSideInfo(j)->getDict()->getAsciiString(TheKey_playerName);
+-						if (name == static_readPlayerNames[i]) {
+-							curSide = j;
+-							break;
+-						}
+-					}
+-					if (curSide == -1)
+-					{
+-						deleteInstance(scripts[i]);
+-						scripts[i] = nullptr;
+-						continue;
++					if (name == static_readPlayerNames[i]) {
++						curSide = j;
++						break;
+ 					}
+-
+-					deleteInstance(getSkirmishSideInfo(curSide)->getScriptList());
+-					getSkirmishSideInfo(curSide)->setScriptList(scripts[i]);
+-					scripts[i] = nullptr;
+ 				}
+-				for (i=0; i<MAX_SKIRMISH_SIDES; i++) {
+-					static_readPlayerNames[i].clear();
++				if (curSide == -1)
++				{
++					deleteInstance(scripts[i]);
++					scripts[i] = nullptr;
++					continue;
+ 				}
+-		} else {
++
++				deleteInstance(getSkirmishSideInfo(curSide)->getScriptList());
++				getSkirmishSideInfo(curSide)->setScriptList(scripts[i]);
++				scripts[i] = nullptr;
++			}
++			for (i=0; i<MAX_SKIRMISH_SIDES; i++) {
++				static_readPlayerNames[i].clear();
++			}
++	} else {
+ #ifdef ALLOW_DEBUG_UTILS
+-			fprintf(stderr, "[SKIRMISH_DIAG] FAILED to open SkirmishScripts.scb path='%s'\n", path.str());
+-			fflush(stderr);
++		fprintf(stderr, "[SKIRMISH_DIAG] FAILED to open SkirmishScripts.scb path='%s'\n", path.str());
++		fflush(stderr);
+ #endif
+-		}
++		return false;
++	}
++	return true;
++}
+ 
++// GeneralsX @feature ai-lab 10/11/2026 Per-player SkirmishScripts.scb for -aiMatch: park the current skirmish
++// templates in backup and load the given file in their place. Call restoreSkirmishScripts afterwards.
++Bool SidesList::swapInSkirmishScripts(const AsciiString& path, SkirmishScriptsBackup& backup)
++{
++	for (Int i = 0; i < MAX_SKIRMISH_SIDES; ++i)
++	{
++		backup.lists[i] = m_skirmishSides[i].getScriptList();
++		m_skirmishSides[i].setScriptList(nullptr);
++	}
++	backup.teams = m_skirmishTeamrec;
++	return loadSkirmishScriptsFile(path);
++}
+ 
++void SidesList::restoreSkirmishScripts(SkirmishScriptsBackup& backup)
++{
++	for (Int i = 0; i < MAX_SKIRMISH_SIDES; ++i)
++	{
++		deleteInstance(m_skirmishSides[i].getScriptList());
++		m_skirmishSides[i].setScriptList(backup.lists[i]);
++		backup.lists[i] = nullptr;
+ 	}
++	m_skirmishTeamrec = backup.teams;
+ }
+ 
+ 
+diff --git a/GeneralsMD/Code/GameEngine/Source/Common/RTS/Player.cpp b/GeneralsMD/Code/GameEngine/Source/Common/RTS/Player.cpp
+index 11c4b4f..80c3cdf 100644
+--- a/GeneralsMD/Code/GameEngine/Source/Common/RTS/Player.cpp
++++ b/GeneralsMD/Code/GameEngine/Source/Common/RTS/Player.cpp
+@@ -57,6 +57,7 @@
+ #include "Common/PerfTimer.h"
+ #include "Common/Player.h"
+ #include "Common/PlayerList.h"
++#include "Common/AIMatch.h"
+ #include "Common/PlayerTemplate.h"
+ #include "Common/ProductionPrerequisite.h"
+ #include "Common/Radar.h"
+@@ -101,6 +102,8 @@
+ 
+ #include "GameNetwork/GameInfo.h"
+ 
++#include <unistd.h>
++
+ 
+ //Grey for neutral.
+ #define NEUTRAL_PLAYER_COLOR 0xffffffff
+@@ -867,6 +870,21 @@ void Player::initFromDict(const Dict* d)
+ 	if (skirmish) {
+ 		// Copy and qualify scripts, and teams.
+ 
++		// GeneralsX @feature ai-lab 10/11/2026 -aiMatch can give this player its own SkirmishScripts.scb:
++		// load it into the skirmish templates for the copy below, then put the shared ones back.
++		const AsciiString ownScripts = AIMatch::skirmishScriptsFor(pname);
++		SidesList::SkirmishScriptsBackup scriptsBackup;
++		if (!ownScripts.isEmpty())
++		{
++			if (!TheSidesList->swapInSkirmishScripts(ownScripts, scriptsBackup))
++			{
++				fprintf(stderr, "[AIMatch] error: cannot load skirmish scripts '%s'\n", ownScripts.str());
++				fflush(stderr);
++				_exit(3);
++			}
++			fprintf(stderr, "[AIMatch] %s uses skirmish scripts '%s'\n", pname.str(), ownScripts.str());
++		}
++
+ 		AsciiString mySide = getSide();
+ 		Int i, skirmishNdx;
+ 		Bool found = false;
+@@ -969,6 +987,8 @@ void Player::initFromDict(const Dict* d)
+ 				}
+ 			}
+ 		}
++		if (!ownScripts.isEmpty())
++			TheSidesList->restoreSkirmishScripts(scriptsBackup);
+ 	}
+ 
+ 	deleteInstance(m_resourceGatheringManager);
+-- 
+2.54.0 (Apple Git-157)
+

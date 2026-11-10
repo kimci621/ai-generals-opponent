@@ -2,7 +2,7 @@ import threading
 import unittest
 
 from helpers import MOD_SCB, VANILLA_SCB, make_fake_root, snapshot
-from lab.variants import ensure_variant
+from lab.variants import ensure_variant, player_scripts
 
 
 class VariantsTest(unittest.TestCase):
@@ -30,6 +30,22 @@ class VariantsTest(unittest.TestCase):
         ensure_variant("vanilla", self.root)
         ensure_variant("improved_ai", self.root)
         self.assertEqual(snapshot(self.root / "GeneralsZH"), before)
+
+    def test_player_scripts_only_scb_may_differ(self):
+        plus = self.root / "Mods/ImprovedAI_Plus/Data"
+        (plus / "Scripts").mkdir(parents=True)
+        (plus / "INI/Default").mkdir(parents=True)
+        (plus / "Scripts/SkirmishScripts.scb").write_bytes(b"plus-scb")
+        (plus / "INI/Default/AIData.ini").write_text("mod")
+        p = player_scripts("improved_ai_plus", "improved_ai", self.root)
+        self.assertEqual(p, self.root / "ai-lab/data/improved_ai_plus/Data/Scripts/SkirmishScripts.scb")
+        self.assertEqual(p.read_bytes(), b"plus-scb")
+        # у ванили нет INI мода: свой .scb поверх общих INI дал бы нечестный матч
+        with self.assertRaises(ValueError):
+            player_scripts("vanilla", "improved_ai", self.root)
+        (plus / "INI/Default/AIData.ini").write_text("other")
+        with self.assertRaises(ValueError):
+            player_scripts("improved_ai_plus", "improved_ai", self.root)
 
     def test_incomplete_variant_rebuilt(self):
         broken = self.root / "ai-lab/data/vanilla"

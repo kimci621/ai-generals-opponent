@@ -10,13 +10,18 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
-from lab.variants import ensure_variant
+from lab.variants import ensure_variant, player_scripts
 
 
 @dataclass(frozen=True)
 class PlayerSpec:
     faction: str          # имя PlayerTemplate
     difficulty: str       # "easy" | "medium" | "hard"
+    scripts: str | None = None  # вариант, чей SkirmishScripts.scb у этого игрока; None - общий из MatchConfig.variant
+
+    @property
+    def label(self) -> str:
+        return f"{self.faction}@{self.scripts}" if self.scripts else self.faction
 
 
 @dataclass(frozen=True)
@@ -53,10 +58,11 @@ _lock = threading.Lock()
 _stopping = threading.Event()
 
 
-def engine_args(cfg: MatchConfig, result_path: Path) -> list[str]:
+def engine_args(cfg: MatchConfig, result_path: Path, root: Path | None = None) -> list[str]:
     args = ["-headless", "-aiMatch", "-aiMap", cfg.map]
     for p in cfg.players:
-        args += ["-aiPlayer", f"{p.faction}:{p.difficulty}"]
+        own = f":{player_scripts(p.scripts, cfg.variant, root)}" if p.scripts else ""
+        args += ["-aiPlayer", f"{p.faction}:{p.difficulty}{own}"]
     return args + ["-aiSeed", str(cfg.seed), "-aiCash", str(cfg.cash),
                    "-aiMaxMinutes", str(cfg.max_minutes), "-aiResult", str(result_path)]
 
@@ -92,7 +98,7 @@ def run_match(cfg: MatchConfig, *, root: Path, app: Path, runs_dir: Path,
         if _stopping.is_set():
             return MatchResult(cfg, "aborted", None, None, 0.0, empty, empty, None, run)
         with open(run / "log.txt", "wb") as log:
-            proc = subprocess.Popen([str(app / "Contents/MacOS/run.sh"), *engine_args(cfg, result_path)],
+            proc = subprocess.Popen([str(app / "Contents/MacOS/run.sh"), *engine_args(cfg, result_path, root)],
                                     env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
         _procs[proc] = False
     status = None

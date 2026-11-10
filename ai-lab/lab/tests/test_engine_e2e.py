@@ -2,11 +2,12 @@
 import json
 import os
 import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 
-from lab.match import MatchConfig, PlayerSpec, default_wall_timeout, run_match
+from lab.match import MatchConfig, PlayerSpec, default_wall_timeout, engine_args, run_match
 
 LAB = Path(__file__).resolve().parents[2]
 ROOT = LAB.parent
@@ -73,6 +74,24 @@ class E2ETest(unittest.TestCase):
         self.assertEqual((sa, sb), (5, 5))
         for field in ("final_crc", "game_seconds", "winner_slot", "structures_at_2min"):
             self.assertEqual(getattr(a, field), getattr(b, field), field)
+
+    def test_own_scripts_same_file_same_game(self):
+        # свой .scb, побайтно равный общему, не меняет игру: подмена и возврат шаблонов честные
+        base = run(seed=3, max_minutes=10, variant="improved_ai")
+        own = run(seed=3, max_minutes=10, variant="improved_ai", keep=True,
+                  players=(PLAYERS[0], PlayerSpec("FactionAmerica", "hard", "improved_ai")))
+        self.assertIn("player1 uses skirmish scripts", (own.run_dir / "log.txt").read_text())
+        self.assertEqual(own.final_crc, base.final_crc)
+
+    def test_own_scripts_missing_file_exit_3(self):
+        cfg = MatchConfig(MAP, (PLAYERS[0], PLAYERS[1]), 1, "vanilla")
+        args = engine_args(cfg, E2ETest.runs / "x.json")
+        args[args.index("FactionAmerica:hard")] = "FactionAmerica:hard:/nonexistent.scb"
+        env = {**os.environ, "HOME": str(E2ETest.runs), "CNC_GENERALS_PATH": str(ROOT / "Generals"),
+               "CNC_GENERALS_ZH_PATH": str(ROOT / "ai-lab/data/vanilla")}
+        p = subprocess.run([str(APP / "Contents/MacOS/run.sh"), *args], env=env, capture_output=True, text=True, timeout=300)
+        self.assertEqual(p.returncode, 3)
+        self.assertIn("cannot open skirmish scripts '/nonexistent.scb'", p.stdout + p.stderr)
 
 
 if __name__ == "__main__":

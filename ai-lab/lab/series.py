@@ -20,7 +20,8 @@ LAB = Path(__file__).resolve().parents[1]
 CSV_COLUMNS = ["seed", "variant", "map", "factions", "difficulties", "status",
                "winner_slot", "winner_faction", "game_seconds", "wall_seconds",
                "structures_at_start", "structures_at_2min", "final_crc", "run_dir",
-               "derricks_on_map", "derricks_5min", "derricks_10min", "derricks_end", "tech_on_map", "tech_end"]
+               "derricks_on_map", "derricks_5min", "derricks_10min", "derricks_end", "tech_on_map", "tech_end",
+               "scripts"]
 
 
 def make_configs(map: str, players: tuple[PlayerSpec, ...], variant: str,
@@ -46,7 +47,8 @@ def _row(r: MatchResult) -> list:
             "" if r.final_crc is None else r.final_crc, r.run_dir or "",
             "" if r.derricks_on_map is None else r.derricks_on_map,
             *(_join(p[k] if len(p) > k else None for p in r.derricks) for k in range(3)),
-            "" if r.tech_on_map is None else r.tech_on_map, _join(p[2] if len(p) > 2 else None for p in r.tech)]
+            "" if r.tech_on_map is None else r.tech_on_map, _join(p[2] if len(p) > 2 else None for p in r.tech),
+            _join(p.scripts or c.variant for p in c.players)]
 
 
 def run_series(cfgs: list[MatchConfig], *, root: Path, app: Path, out_csv: Path,
@@ -82,7 +84,7 @@ def summary(results: list[MatchResult], wall: float) -> str:
     n = len(results)
     if not n:
         return "матчей: 0"
-    wins = Counter(r.config.players[r.winner_slot].faction for r in results if r.winner_slot is not None)
+    wins = Counter(r.config.players[r.winner_slot].label for r in results if r.winner_slot is not None)
     statuses = Counter(r.status for r in results)
     games = [r.game_seconds for r in results if r.game_seconds is not None]
     lines = [f"матчей: {n}"]
@@ -98,7 +100,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Серия матчей ИИ против ИИ")
     ap.add_argument("--variant", required=True)
     ap.add_argument("--map", required=True)
-    ap.add_argument("--player", action="append", required=True, help="Faction:difficulty, по одному на слот")
+    ap.add_argument("--player", action="append", required=True, help="Faction:difficulty[:вариант со своим .scb], по одному на слот")
     ap.add_argument("--matches", type=int, required=True)
     ap.add_argument("--jobs", type=int, default=4)
     ap.add_argument("--out", type=Path, required=True)
@@ -108,7 +110,7 @@ def main(argv=None) -> int:
     ap.add_argument("--root", type=Path, default=LAB.parent)
     ap.add_argument("--app", type=Path, default=LAB / "GeneralsXZH-AI.app")
     a = ap.parse_args(argv)
-    players = tuple(PlayerSpec(*p.split(":", 1)) for p in a.player)
+    players = tuple(PlayerSpec(*p.split(":", 2)) for p in a.player)
     cfgs = make_configs(a.map, players, a.variant, a.matches, a.first_seed, not a.no_swap, a.max_minutes)
     # фоновый запуск из shell наследует игнор SIGINT; Ctrl+C должен работать всегда
     signal.signal(signal.SIGINT, signal.default_int_handler)

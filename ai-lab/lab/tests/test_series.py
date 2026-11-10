@@ -84,3 +84,32 @@ class SeriesTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DuelTest(unittest.TestCase):
+    def test_grid_and_verdict(self):
+        import csv as _csv
+        import tempfile
+        from lab.duel import duel_configs, verdict
+        from lab.series import CSV_COLUMNS
+        cfgs = duel_configs("plus", "base", 2)
+        self.assertEqual(len(cfgs), 3 * 9 * 2)
+        # кандидат в обоих слотах, данные соперника
+        self.assertEqual({c.players.index(next(p for p in c.players if p.scripts == "plus")) for c in cfgs}, {0, 1})
+        self.assertEqual({c.variant for c in cfgs}, {"base"})
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "r.csv"
+            with open(path, "w", newline="") as f:
+                w = _csv.DictWriter(f, CSV_COLUMNS)
+                w.writeheader()
+                for i, c in enumerate(cfgs):
+                    slot = [p.scripts for p in c.players].index("plus")
+                    win = slot if i % 3 else 1 - slot   # кандидат выигрывает 2 из 3
+                    w.writerow({"seed": c.seed, "map": c.map, "factions": "|".join(p.faction for p in c.players),
+                                "scripts": "|".join(p.scripts or c.variant for p in c.players), "status": "win",
+                                "winner_slot": win, "structures_at_start": "1|1",
+                                "structures_at_2min": "1|5" if i == 0 else "5|5"})
+            v = verdict(path, "plus")
+        self.assertIn("побед 36/54 (67%)", v)
+        self.assertIn("бот не строился первые 2 минуты: 1", v)
+        self.assertIn("итог: не лучше", v)
