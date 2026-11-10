@@ -1,0 +1,425 @@
+From 184a37594f88f1ffbacb01ceb2b6ff916aeef75f Mon Sep 17 00:00:00 2001
+From: Amir Latipov <kimciwork@gmail.com>
+Date: Tue, 10 Nov 2026 12:01:42 +0300
+Subject: [PATCH 2/2] feat(ai-lab): tech building counters and AI_LAB_TRACE
+ diagnostics
+
+- AIMatch result schema 2: derricks/tech buildings on map at start and
+  per player at 5 min, 10 min and match end.
+- AI_LAB_TRACE=<substring>: read-only stderr trace of tech building
+  owners, capture upgrade, team units (AI state, goal), script condition
+  transitions, sequential scripts, team builds, tech-within-distance,
+  move-towards-nearest target and capture hunt candidates.
+  Does not change CRC.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ Core/GameEngine/Include/Common/AIMatch.h      |   5 +
+ Core/GameEngine/Source/Common/AIMatch.cpp     | 151 +++++++++++++++++-
+ .../Source/GameLogic/AI/AIPlayer.cpp          |   4 +
+ .../Object/Update/CommandButtonHuntUpdate.cpp |   8 +
+ .../GameLogic/ScriptEngine/ScriptActions.cpp  |  16 ++
+ .../ScriptEngine/ScriptConditions.cpp         |   6 +
+ .../GameLogic/ScriptEngine/ScriptEngine.cpp   |  18 +++
+ 7 files changed, 203 insertions(+), 5 deletions(-)
+
+diff --git a/Core/GameEngine/Include/Common/AIMatch.h b/Core/GameEngine/Include/Common/AIMatch.h
+index 6e290da..fa9a550 100644
+--- a/Core/GameEngine/Include/Common/AIMatch.h
++++ b/Core/GameEngine/Include/Common/AIMatch.h
+@@ -32,4 +32,9 @@ extern AIMatchOptions TheAIMatchOptions;
+ namespace AIMatch
+ {
+ 	int run();   // process exit code
++
++	// Debug trace for the AI test range: AI_LAB_TRACE=<substring of a script or team name>.
++	// Lines go to stderr with the logic frame. Read-only, does not affect the simulation.
++	Bool traceWanted(const char *name);
++	void trace(const char *fmt, ...);
+ }
+diff --git a/Core/GameEngine/Source/Common/AIMatch.cpp b/Core/GameEngine/Source/Common/AIMatch.cpp
+index 10a5d6f..331e13b 100644
+--- a/Core/GameEngine/Source/Common/AIMatch.cpp
++++ b/Core/GameEngine/Source/Common/AIMatch.cpp
+@@ -24,11 +24,19 @@
+ #include "GameClient/GameClient.h"
+ #include "GameClient/MapUtil.h"
+ #include "GameLogic/GameLogic.h"
++#include "Common/ThingTemplate.h"
++#include "Common/Team.h"
++#include "Common/Upgrade.h"
++#include "GameLogic/Module/BodyModule.h"
++#include "GameLogic/Module/AIUpdate.h"
+ #include "GameLogic/Object.h"
+ #include "GameLogic/VictoryConditions.h"
+ #include "GameNetwork/GameInfo.h"
+ 
++#include <cstdarg>
+ #include <cstdio>
++#include <cstdlib>
++#include <map>
+ #include <string>
+ #include <unistd.h>
+ 
+@@ -37,6 +45,9 @@ AIMatchOptions TheAIMatchOptions;
+ namespace
+ {
+ const Int FRAMES_2MIN = 2 * 60 * LOGICFRAMES_PER_SECOND;
++// Oil derricks and all tech buildings: sampled at 5 and 10 min and at the end of the match
++const UnsignedInt TECH_SAMPLE_FRAMES[] = { 5 * 60 * LOGICFRAMES_PER_SECOND, 10 * 60 * LOGICFRAMES_PER_SECOND };
++enum { TECH_SAMPLES = 3 };
+ 
+ int fail(int code, const char *fmt, const char *arg = "")
+ {
+@@ -58,6 +69,30 @@ Int countStructures(Player *player)
+ 	return count;
+ }
+ 
++Bool isDerrick(const Object *obj)
++{
++	return obj->getTemplate()->getName() == "TechOilDerrick";
++}
++
++// Read-only, does not affect simulation or CRC. player == nullptr counts every owner
++void countTech(Player *player, Int &derricks, Int &tech)
++{
++	derricks = tech = 0;
++	for (Object *obj = TheGameLogic->getFirstObject(); obj; obj = obj->getNextObject())
++	{
++		if (!obj->isKindOf(KINDOF_TECH_BUILDING) || (player && obj->getControllingPlayer() != player))
++			continue;
++		++tech;
++		if (isDerrick(obj))
++			++derricks;
++	}
++}
++
++std::string jsonIntOrNull(Int v)
++{
++	return v < 0 ? std::string("null") : std::to_string(v);
++}
++
+ std::string jsonEscape(const char *s)
+ {
+ 	std::string out;
+@@ -71,6 +106,77 @@ std::string jsonEscape(const char *s)
+ }
+ } // namespace
+ 
++Bool AIMatch::traceWanted(const char *name)
++{
++	static const char *pattern = getenv("AI_LAB_TRACE");
++	return pattern && *pattern && name && strstr(name, pattern) != nullptr;
++}
++
++void AIMatch::trace(const char *fmt, ...)
++{
++	fprintf(stderr, "[TRACE f=%u] ", TheGameLogic ? TheGameLogic->getFrame() : 0);
++	va_list args;
++	va_start(args, fmt);
++	vfprintf(stderr, fmt, args);
++	va_end(args);
++	fprintf(stderr, "\n");
++}
++
++namespace
++{
++// Trace: tech building positions at start, then every change of owner
++void traceTechOwners(std::map<ObjectID, Player *> &owners)
++{
++	for (Object *obj = TheGameLogic->getFirstObject(); obj; obj = obj->getNextObject())
++	{
++		if (!obj->isKindOf(KINDOF_TECH_BUILDING))
++			continue;
++		Player *owner = obj->getControllingPlayer();
++		std::map<ObjectID, Player *>::iterator it = owners.find(obj->getID());
++		if (it != owners.end() && it->second == owner)
++			continue;
++		const Coord3D *pos = obj->getPosition();
++		AIMatch::trace("tech %s #%d (%.0f, %.0f) owner %s", obj->getTemplate()->getName().str(), (int)obj->getID(),
++			pos->x, pos->y, owner ? TheNameKeyGenerator->keyToName(owner->getPlayerNameKey()).str() : "-");
++		owners[obj->getID()] = owner;
++	}
++}
++} // namespace
++
++namespace
++{
++// Trace: members of teams whose name matches AI_LAB_TRACE, and the capture-building upgrade per player
++void traceTeamsAndUpgrades(size_t n, std::vector<Int> &hadCapture)
++{
++	static const UpgradeTemplate *capture = TheUpgradeCenter->findUpgrade("Upgrade_InfantryCaptureBuilding");
++	for (size_t i = 0; i < n; ++i)
++	{
++		Player *p = ThePlayerList->getPlayerFromSlotIndex((Int)i);
++		Int has = capture && p->hasUpgradeComplete(capture) ? 1 : 0;
++		if (has != hadCapture[i])
++		{
++			AIMatch::trace("player %d capture upgrade = %d", (int)i, (int)has);
++			hadCapture[i] = has;
++		}
++	}
++	for (Object *obj = TheGameLogic->getFirstObject(); obj; obj = obj->getNextObject())
++	{
++		Team *team = obj->getTeam();
++		if (!team || obj->isKindOf(KINDOF_STRUCTURE) || !AIMatch::traceWanted(team->getName().str()))
++			continue;
++		const Coord3D *pos = obj->getPosition();
++		BodyModuleInterface *body = obj->getBodyModule();
++		AIUpdateInterface *ai = obj->getAI();
++		Object *goal = ai ? ai->getGoalObject() : nullptr;
++		const Coord3D *gp = ai ? ai->getGoalPosition() : nullptr;
++		AIMatch::trace("unit %s #%d team '%s' (%.0f, %.0f) hp %.0f state %d src %d goal #%d (%.0f, %.0f)", obj->getTemplate()->getName().str(), (int)obj->getID(),
++			team->getName().str(), pos->x, pos->y, body ? body->getHealth() : -1.0f,
++			ai ? (int)ai->getAIStateType() : -1, ai ? (int)ai->getLastCommandSource() : -1,
++			goal ? (int)goal->getID() : -1, gp ? gp->x : 0.0f, gp ? gp->y : 0.0f);
++	}
++}
++} // namespace
++
+ int AIMatch::run()
+ {
+ 	const AIMatchOptions &o = TheAIMatchOptions;
+@@ -149,6 +255,12 @@ int AIMatch::run()
+ 	const UnsignedInt maxFrame = (UnsignedInt)o.maxMinutes * 60 * LOGICFRAMES_PER_SECOND;
+ 	const size_t n = o.players.size();
+ 	std::vector<Int> atStart(n, -1), at2min(n, -1);
++	std::vector<std::vector<Int> > derricks(n, std::vector<Int>(TECH_SAMPLES, -1)), tech(n, std::vector<Int>(TECH_SAMPLES, -1));
++	Int derricksOnMap = -1, techOnMap = -1;
++	Int nextTechSample = 0;
++	const Bool traceTech = traceWanted("Tech");
++	std::map<ObjectID, Player *> techOwners;
++	std::vector<Int> hadCapture(n, -1);
+ 	Bool started = FALSE;
+ 	const char *outcome = nullptr;
+ 	for (Int idle = 0; !outcome; )
+@@ -167,6 +279,20 @@ int AIMatch::run()
+ 				started = TRUE;
+ 				for (size_t i = 0; i < n; ++i)
+ 					atStart[i] = countStructures(ThePlayerList->getPlayerFromSlotIndex((Int)i));
++				countTech(nullptr, derricksOnMap, techOnMap);
++				if (traceTech)
++				{
++					for (size_t i = 0; i < n; ++i)
++					{
++						Player *p = ThePlayerList->getPlayerFromSlotIndex((Int)i);
++						Object *cc = nullptr;
++						for (Object *obj = TheGameLogic->getFirstObject(); obj && !cc; obj = obj->getNextObject())
++							if (obj->getControllingPlayer() == p && obj->isKindOf(KINDOF_STRUCTURE))
++								cc = obj;
++						AIMatch::trace("player %d %s base (%.0f, %.0f)", (int)i, TheNameKeyGenerator->keyToName(p->getPlayerNameKey()).str(),
++							cc ? cc->getPosition()->x : 0.0f, cc ? cc->getPosition()->y : 0.0f);
++					}
++				}
+ 			}
+ 			else if (++idle > 1000)
+ 				return fail(3, "game did not start%s");
+@@ -177,6 +303,16 @@ int AIMatch::run()
+ 			for (size_t i = 0; i < n; ++i)
+ 				at2min[i] = countStructures(ThePlayerList->getPlayerFromSlotIndex((Int)i));
+ 		}
++		if (traceTech && frame % LOGICFRAMES_PER_SECOND == 0)
++			traceTechOwners(techOwners);
++		if (traceTech && frame % (5 * LOGICFRAMES_PER_SECOND) == 0)
++			traceTeamsAndUpgrades(n, hadCapture);
++		if (nextTechSample < TECH_SAMPLES - 1 && frame >= TECH_SAMPLE_FRAMES[nextTechSample])
++		{
++			for (size_t i = 0; i < n; ++i)
++				countTech(ThePlayerList->getPlayerFromSlotIndex((Int)i), derricks[i][nextTechSample], tech[i][nextTechSample]);
++			++nextTechSample;
++		}
+ 		if (TheVictoryConditions->getEndFrame() != 0)
+ 			outcome = "win";
+ 		else if (frame >= maxFrame)
+@@ -202,22 +338,27 @@ int AIMatch::run()
+ 	}
+ 
+ 	const UnsignedInt endFrame = TheGameLogic->getFrame();
++	for (size_t i = 0; i < n; ++i)
++		countTech(ThePlayerList->getPlayerFromSlotIndex((Int)i), derricks[i][TECH_SAMPLES - 1], tech[i][TECH_SAMPLES - 1]);
+ 	const UnsignedInt crc = TheGameLogic->getCRC(CRC_RECALC);
+ 	std::string tmpPath = std::string(o.resultPath.str()) + ".tmp";
+ 	FILE *f = fopen(tmpPath.c_str(), "w");
+ 	if (!f)
+ 		return fail(3, "cannot write '%s'", tmpPath.c_str());
+-	fprintf(f, "{\"schema\": 1, \"seed\": %d, \"map\": \"%s\", \"outcome\": \"%s\", \"end_frame\": %u, "
+-		"\"game_seconds\": %.1f, \"final_crc\": %u, \"players\": [",
++	fprintf(f, "{\"schema\": 2, \"seed\": %d, \"map\": \"%s\", \"outcome\": \"%s\", \"end_frame\": %u, "
++		"\"game_seconds\": %.1f, \"final_crc\": %u, \"derricks_on_map\": %s, \"tech_on_map\": %s, \"players\": [",
+ 		seed, jsonEscape(o.map.str()).c_str(), outcome, endFrame,
+-		(double)endFrame / LOGICFRAMES_PER_SECOND, crc);
++		(double)endFrame / LOGICFRAMES_PER_SECOND, crc, jsonIntOrNull(derricksOnMap).c_str(), jsonIntOrNull(techOnMap).c_str());
+ 	for (size_t i = 0; i < n; ++i)
+ 	{
+ 		char at2[16];
+ 		if (at2min[i] < 0) strcpy(at2, "null"); else snprintf(at2, sizeof(at2), "%d", at2min[i]);
+ 		fprintf(f, "%s{\"slot\": %d, \"faction\": \"%s\", \"difficulty\": \"%s\", \"won\": %s, "
+-			"\"structures_at_start\": %d, \"structures_at_2min\": %s}",
+-			i ? ", " : "", (int)i, factions[i].str(), difficulties[i].str(), won[i] ? "true" : "false", atStart[i], at2);
++			"\"structures_at_start\": %d, \"structures_at_2min\": %s, "
++			"\"derricks\": [%s, %s, %s], \"tech_buildings\": [%s, %s, %s]}",
++			i ? ", " : "", (int)i, factions[i].str(), difficulties[i].str(), won[i] ? "true" : "false", atStart[i], at2,
++			jsonIntOrNull(derricks[i][0]).c_str(), jsonIntOrNull(derricks[i][1]).c_str(), jsonIntOrNull(derricks[i][2]).c_str(),
++			jsonIntOrNull(tech[i][0]).c_str(), jsonIntOrNull(tech[i][1]).c_str(), jsonIntOrNull(tech[i][2]).c_str());
+ 	}
+ 	fprintf(f, "]}\n");
+ 	fflush(f);
+diff --git a/GeneralsMD/Code/GameEngine/Source/GameLogic/AI/AIPlayer.cpp b/GeneralsMD/Code/GameEngine/Source/GameLogic/AI/AIPlayer.cpp
+index 24451ff..ffd8a3a 100644
+--- a/GeneralsMD/Code/GameEngine/Source/GameLogic/AI/AIPlayer.cpp
++++ b/GeneralsMD/Code/GameEngine/Source/GameLogic/AI/AIPlayer.cpp
+@@ -61,6 +61,7 @@
+ #include "GameLogic/Module/SupplyTruckAIUpdate.h"
+ #include "GameLogic/Module/SupplyWarehouseDockUpdate.h"
+ #include "GameLogic/PartitionManager.h"
++#include "Common/AIMatch.h"
+ 
+ 
+ #define SUPPLY_CENTER_CLOSE_DIST (20*PATHFIND_CELL_SIZE_F)
+@@ -2452,6 +2453,9 @@ void AIPlayer::updateBridgeRepair()
+ // ------------------------------------------------------------------------------------------------
+ void AIPlayer::buildSpecificAITeam( TeamPrototype *teamProto, Bool priorityBuild)
+ {
++	// GeneralsX @feature ai-lab 09/11/2026 Trace team builds for the AI test range.
++	if (teamProto && AIMatch::traceWanted(teamProto->getName().str()))
++		AIMatch::trace("%s builds team '%s'", TheNameKeyGenerator->keyToName(m_player->getPlayerNameKey()).str(), teamProto->getName().str());
+ 	//
+ 	// Create "Team in queue" based on team population
+ 	//
+diff --git a/GeneralsMD/Code/GameEngine/Source/GameLogic/Object/Update/CommandButtonHuntUpdate.cpp b/GeneralsMD/Code/GameEngine/Source/GameLogic/Object/Update/CommandButtonHuntUpdate.cpp
+index fa0e0d2..f3bacba 100644
+--- a/GeneralsMD/Code/GameEngine/Source/GameLogic/Object/Update/CommandButtonHuntUpdate.cpp
++++ b/GeneralsMD/Code/GameEngine/Source/GameLogic/Object/Update/CommandButtonHuntUpdate.cpp
+@@ -51,6 +51,7 @@
+ #include "GameLogic/Module/SpecialAbilityUpdate.h"
+ #include "GameLogic/Module/SpecialPowerModule.h"
+ #include "GameLogic/ScriptEngine.h"
++#include "Common/AIMatch.h" // GeneralsX @feature ai-lab 09/11/2026
+ 
+ 
+ //-------------------------------------------------------------------------------------------------
+@@ -341,6 +342,11 @@ Object* CommandButtonHuntUpdate::scanClosestTarget()
+ 				Real dist = WWMath::SqrtOrigin(distSqr);
+ 				Int curPriority = data->m_scanRange - dist;
+ 				if (info) curPriority = info->getPriority(other->getTemplate());
++				// GeneralsX @feature ai-lab 09/11/2026 Trace capture hunt candidates.
++				if (isCaptureBuilding && AIMatch::traceWanted("Hunt"))
++					AIMatch::trace("hunt #%d at (%.0f,%.0f) cand %s #%d (%.0f,%.0f) dist %.0f prio %d",
++						(Int)me->getID(), me->getPosition()->x, me->getPosition()->y, other->getTemplate()->getName().str(),
++						(Int)other->getID(), other->getPosition()->x, other->getPosition()->y, dist, curPriority);
+ 				if (curPriority == 0)
+ 					continue; // don't attack 0 priority targets.
+ 				Int modifier = (Int)WWMath::Div_FixNaN(dist, TheAI->getAiData()->m_attackPriorityDistanceModifier, 0.0f);
+@@ -388,6 +394,8 @@ Object* CommandButtonHuntUpdate::scanClosestTarget()
+ 	}
+ 
+ 
++	if (isCaptureBuilding && AIMatch::traceWanted("Hunt"))
++		AIMatch::trace("hunt #%d picks #%d", (Int)me->getID(), bestTarget ? (Int)bestTarget->getID() : -1);
+ 	return bestTarget;
+ }
+ 
+diff --git a/GeneralsMD/Code/GameEngine/Source/GameLogic/ScriptEngine/ScriptActions.cpp b/GeneralsMD/Code/GameEngine/Source/GameLogic/ScriptEngine/ScriptActions.cpp
+index 28de619..65ed865 100644
+--- a/GeneralsMD/Code/GameEngine/Source/GameLogic/ScriptEngine/ScriptActions.cpp
++++ b/GeneralsMD/Code/GameEngine/Source/GameLogic/ScriptEngine/ScriptActions.cpp
+@@ -86,6 +86,7 @@
+ #include "GameLogic/Weapon.h"
+ #include "GameLogic/VictoryConditions.h"
+ #include "GameLogic/AIPathfind.h"
++#include "Common/AIMatch.h" // GeneralsX @feature ai-lab 09/11/2026
+ 
+ 
+ // Kind of hacky, but we need to dance on the guts of the terrain.
+@@ -5416,6 +5417,21 @@ void ScriptActions::doMoveTeamTowardsNearest( const AsciiString& teamName, const
+ 			}
+ 		}
+ 	}
++	// GeneralsX @feature ai-lab 09/11/2026 Trace which target a move-towards-nearest picked.
++	if( AIMatch::traceWanted( "MoveNearest" ) )
++	{
++		AsciiString pts;
++		for( Int k = 0; k < trig->getNumPoints(); ++k )
++		{
++			AsciiString one;
++			one.format( " (%d,%d)", trig->getPoint( k )->x, trig->getPoint( k )->y );
++			pts.concat( one );
++		}
++		AIMatch::trace( "moveNearest team=%s type=%s area=%s from=(%.0f,%.0f) best=%d at (%.0f,%.0f) poly=%s",
++			teamName.str(), objectType.str(), trig->getTriggerName().str(), teamPos.x, teamPos.y,
++			bestObj ? (Int)bestObj->getID() : -1, bestObj ? bestObj->getPosition()->x : 0.0f,
++			bestObj ? bestObj->getPosition()->y : 0.0f, pts.str() );
++	}
+ 	for( iter = team->iterate_TeamMemberList(); !iter.done(); iter.advance() )
+ 	{
+ 		Object *obj = iter.cur();
+diff --git a/GeneralsMD/Code/GameEngine/Source/GameLogic/ScriptEngine/ScriptConditions.cpp b/GeneralsMD/Code/GameEngine/Source/GameLogic/ScriptEngine/ScriptConditions.cpp
+index 59585c3..86a1e01 100644
+--- a/GeneralsMD/Code/GameEngine/Source/GameLogic/ScriptEngine/ScriptConditions.cpp
++++ b/GeneralsMD/Code/GameEngine/Source/GameLogic/ScriptEngine/ScriptConditions.cpp
+@@ -29,6 +29,7 @@
+ 
+ #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
+ 
++#include "Common/AIMatch.h"
+ #include "Common/GameEngine.h"
+ #include "Common/MapObject.h"
+ #include "Common/PlayerList.h"
+@@ -2296,6 +2297,11 @@ Bool ScriptConditions::evaluateSkirmishPlayerTechBuildingWithinDistancePerimeter
+ 	};
+ 
+ 	Bool comparison = ThePartitionManager->getClosestObject(&center, radius, FROM_CENTER_2D, filters) != nullptr;
++	// GeneralsX @feature ai-lab 09/11/2026 Trace the cached tech building check for the AI test range.
++	if (AIMatch::traceWanted("TechDistance"))
++		AIMatch::trace("%s tech within distance: center (%.0f, %.0f) radius %.0f (area %.0f + %.0f) = %d",
++			TheNameKeyGenerator->keyToName(player->getPlayerNameKey()).str(), center.x, center.y, radius,
++			pTrig->getRadius(), pDistanceParm->getReal(), (int)comparison);
+ 	pCondition->setCustomData(-1); // false.
+ 	if (comparison) {
+ 		pCondition->setCustomData(1); // true.
+diff --git a/GeneralsMD/Code/GameEngine/Source/GameLogic/ScriptEngine/ScriptEngine.cpp b/GeneralsMD/Code/GameEngine/Source/GameLogic/ScriptEngine/ScriptEngine.cpp
+index 494ae35..9f4275a 100644
+--- a/GeneralsMD/Code/GameEngine/Source/GameLogic/ScriptEngine/ScriptEngine.cpp
++++ b/GeneralsMD/Code/GameEngine/Source/GameLogic/ScriptEngine/ScriptEngine.cpp
+@@ -75,6 +75,8 @@ static HMODULE st_DebugDLL;
+ #include "GameClient/ParticleSys.h"
+ #include "Common/MapObject.h"
+ #include "../../GameEngineDevice/Include/W3DDevice/GameClient/W3DAssetManagerExposed.h"
++#include "Common/AIMatch.h"
++#include <map>
+ 
+ static void _addUpdatedParticleSystem( AsciiString particleSystemName );
+ static void _appendAllParticleSystems();
+@@ -7620,6 +7622,19 @@ Bool ScriptEngine::evaluateConditions( Script *pScript, Team *thisTeam, Player *
+ 	pScript->addToConditionTime(timeToEvaluate);
+ #endif
+ 
++	// GeneralsX @feature ai-lab 09/11/2026 Trace condition result changes for the AI test range.
++	if (AIMatch::traceWanted(pScript->getName().str()))
++	{
++		static std::map<std::pair<const Script *, const Player *>, Bool> last;
++		std::pair<const Script *, const Player *> k(pScript, player);
++		std::map<std::pair<const Script *, const Player *>, Bool>::iterator it = last.find(k);
++		if (it == last.end() || it->second != testValue)
++		{
++			last[k] = testValue;
++			AIMatch::trace("%s script '%s' = %d", player ? TheNameKeyGenerator->keyToName(player->getPlayerNameKey()).str() : "-",
++				pScript->getName().str(), (int)testValue);
++		}
++	}
+ 	return testValue; // If none of the or's fired, then it is false.
+ }
+ 
+@@ -7737,6 +7752,9 @@ void ScriptEngine::appendSequentialScript(const SequentialScript *scriptToSequen
+ {
+ 	SequentialScript *newSequentialScript = newInstance( SequentialScript );
+ 	(*newSequentialScript) = (*scriptToSequence);
++	if (scriptToSequence->m_scriptToExecuteSequentially && AIMatch::traceWanted(scriptToSequence->m_scriptToExecuteSequentially->getName().str()))
++		AIMatch::trace("sequential '%s' team %s", scriptToSequence->m_scriptToExecuteSequentially->getName().str(),
++			scriptToSequence->m_teamToExecOn ? scriptToSequence->m_teamToExecOn->getName().str() : "-");
+ 
+ 	// Must set this to nullptr, as we don't want an infinite loop.
+ 	newSequentialScript->m_nextScriptInSequence = nullptr;
+-- 
+2.54.0 (Apple Git-157)
+

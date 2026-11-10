@@ -1,0 +1,3 @@
+# Файлы мода храним байт в байт (CRLF в INI, двоичные .scb)
+Mods/** -text
+*.scb binary

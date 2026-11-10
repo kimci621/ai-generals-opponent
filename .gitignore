@@ -1,0 +1,12 @@
+# Файлы игры EA и сборки движка в репозиторий не кладём
+/Generals/
+/GeneralsZH/
+*.app
+/Mods/vanilla_backup/
+/ai-lab/engine/
+/ai-lab/data/
+/ai-lab/runs/
+/ai-lab/var/
+/.backup/
+.DS_Store
+__pycache__/

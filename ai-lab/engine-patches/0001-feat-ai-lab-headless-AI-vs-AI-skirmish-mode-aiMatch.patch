@@ -1,0 +1,449 @@
+From cd2fe4eb34a9f77eacbeea69c87365d8dcf60cc9 Mon Sep 17 00:00:00 2001
+From: Amir Latipov <kimciwork@gmail.com>
+Date: Sat, 7 Nov 2026 00:50:35 +0300
+Subject: [PATCH 1/2] feat(ai-lab): headless AI-vs-AI skirmish mode (-aiMatch)
+
+-headless -aiMatch -aiMap <map> -aiPlayer <Faction>:<difficulty> ...
+-aiSeed -aiCash -aiMaxMinutes -aiResult <json>. Builds SkirmishGameInfo
+from flags, runs logic without rendering or FPS limit (as ReplaySimulation),
+writes winner, structure counts and final CRC to JSON, exits via _exit.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ Core/GameEngine/CMakeLists.txt                |   2 +
+ Core/GameEngine/Include/Common/AIMatch.h      |  35 +++
+ Core/GameEngine/Source/Common/AIMatch.cpp     | 232 ++++++++++++++++++
+ Core/GameEngine/Source/Common/CommandLine.cpp |  52 ++++
+ .../GameEngine/Source/Common/GameMain.cpp     |   8 +-
+ .../Source/GameLogic/System/GameLogic.cpp     |   4 +-
+ 6 files changed, 331 insertions(+), 2 deletions(-)
+ create mode 100644 Core/GameEngine/Include/Common/AIMatch.h
+ create mode 100644 Core/GameEngine/Source/Common/AIMatch.cpp
+
+diff --git a/Core/GameEngine/CMakeLists.txt b/Core/GameEngine/CMakeLists.txt
+index e5b2fe0..d56968f 100644
+--- a/Core/GameEngine/CMakeLists.txt
++++ b/Core/GameEngine/CMakeLists.txt
+@@ -103,6 +103,7 @@ set(GAMEENGINE_SRC
+ #    Include/Common/Recorder.h
+ #    Include/Common/Registry.h
+     Include/Common/ReplaySimulation.h
++    Include/Common/AIMatch.h
+ #    Include/Common/ResourceGatheringManager.h
+ #    Include/Common/Science.h
+ #    Include/Common/ScopedMutex.h
+@@ -636,6 +637,7 @@ set(GAMEENGINE_SRC
+     Source/Common/RandomValue.cpp
+ #    Source/Common/Recorder.cpp
+     Source/Common/ReplaySimulation.cpp
++    Source/Common/AIMatch.cpp
+     Source/Common/RTS/AcademyStats.cpp
+ #    Source/Common/RTS/ActionManager.cpp
+ #    Source/Common/RTS/Energy.cpp
+diff --git a/Core/GameEngine/Include/Common/AIMatch.h b/Core/GameEngine/Include/Common/AIMatch.h
+new file mode 100644
+index 0000000..6e290da
+--- /dev/null
++++ b/Core/GameEngine/Include/Common/AIMatch.h
+@@ -0,0 +1,35 @@
++/*
++**	Command & Conquer Generals Zero Hour(tm)
++**
++**	This program is free software: you can redistribute it and/or modify
++**	it under the terms of the GNU General Public License as published by
++**	the Free Software Foundation, either version 3 of the License, or
++**	(at your option) any later version.
++*/
++
++// GeneralsX @feature ai-lab 07/11/2026 Headless AI-vs-AI skirmish match for the AI test range.
++// Usage: -headless -aiMatch -aiMap <map> -aiPlayer <Faction>:<easy|medium|hard> (one per slot)
++//        -aiSeed <n> -aiCash <n> -aiMaxMinutes <n> -aiResult <path.json>
++// Exit codes: 0 match played out (win, draw or time limit), 2 bad arguments, 3 could not start.
++
++#pragma once
++
++#include <vector>
++
++struct AIMatchOptions
++{
++	Bool enabled = FALSE;
++	AsciiString map;
++	std::vector<AsciiString> players;   // "FactionGLA:hard"
++	Int seed = -1;
++	Int cash = 10000;
++	Int maxMinutes = 90;
++	AsciiString resultPath;
++};
++
++extern AIMatchOptions TheAIMatchOptions;
++
++namespace AIMatch
++{
++	int run();   // process exit code
++}
+diff --git a/Core/GameEngine/Source/Common/AIMatch.cpp b/Core/GameEngine/Source/Common/AIMatch.cpp
+new file mode 100644
+index 0000000..10a5d6f
+--- /dev/null
++++ b/Core/GameEngine/Source/Common/AIMatch.cpp
+@@ -0,0 +1,232 @@
++/*
++**	Command & Conquer Generals Zero Hour(tm)
++**
++**	This program is free software: you can redistribute it and/or modify
++**	it under the terms of the GNU General Public License as published by
++**	the Free Software Foundation, either version 3 of the License, or
++**	(at your option) any later version.
++*/
++
++// GeneralsX @feature ai-lab 07/11/2026 Headless AI-vs-AI skirmish match, modelled on ReplaySimulation.
++
++#include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
++
++#include "Common/AIMatch.h"
++
++#include "Common/GlobalData.h"
++#include "Common/KindOf.h"
++#include "Common/MessageStream.h"
++#include "Common/Money.h"
++#include "Common/Player.h"
++#include "Common/PlayerList.h"
++#include "Common/PlayerTemplate.h"
++#include "Common/RandomValue.h"
++#include "GameClient/GameClient.h"
++#include "GameClient/MapUtil.h"
++#include "GameLogic/GameLogic.h"
++#include "GameLogic/Object.h"
++#include "GameLogic/VictoryConditions.h"
++#include "GameNetwork/GameInfo.h"
++
++#include <cstdio>
++#include <string>
++#include <unistd.h>
++
++AIMatchOptions TheAIMatchOptions;
++
++namespace
++{
++const Int FRAMES_2MIN = 2 * 60 * LOGICFRAMES_PER_SECOND;
++
++int fail(int code, const char *fmt, const char *arg = "")
++{
++	fprintf(stderr, "[AIMatch] error: ");
++	fprintf(stderr, fmt, arg);
++	fprintf(stderr, "\n");
++	fflush(stderr);
++	return code;
++}
++
++Int countStructures(Player *player)
++{
++	Int count = 0;
++	for (Object *obj = TheGameLogic->getFirstObject(); obj; obj = obj->getNextObject())
++	{
++		if (obj->isKindOf(KINDOF_STRUCTURE) && obj->getControllingPlayer() == player)
++			++count;
++	}
++	return count;
++}
++
++std::string jsonEscape(const char *s)
++{
++	std::string out;
++	for (; *s; ++s)
++	{
++		if (*s == '\\' || *s == '"')
++			out += '\\';
++		out += *s;
++	}
++	return out;
++}
++} // namespace
++
++int AIMatch::run()
++{
++	const AIMatchOptions &o = TheAIMatchOptions;
++	if (!TheGlobalData->m_headless)
++		return fail(2, "-aiMatch requires -headless%s");
++	if (o.map.isEmpty() || o.resultPath.isEmpty() || o.players.size() < 2 || o.players.size() > MAX_SLOTS || o.maxMinutes <= 0)
++		return fail(2, "need -aiMap, -aiResult and 2..8 -aiPlayer%s");
++
++	// Slots, as in SkirmishGameOptionsMenuInit
++	TheSkirmishGameInfo = NEW SkirmishGameInfo;
++	TheSkirmishGameInfo->init();
++	TheSkirmishGameInfo->clearSlotList();
++	TheSkirmishGameInfo->reset();
++	TheSkirmishGameInfo->setLocalIP(TheSkirmishGameInfo->getSlot(0)->getIP());
++	TheSkirmishGameInfo->enterGame();
++
++	std::vector<AsciiString> factions, difficulties;
++	for (size_t i = 0; i < o.players.size(); ++i)
++	{
++		const char *spec = o.players[i].str();
++		const char *colon = strchr(spec, ':');
++		if (!colon)
++			return fail(2, "bad -aiPlayer '%s', expected Faction:difficulty", spec);
++		AsciiString faction;
++		faction.set(spec, (Int)(colon - spec));
++		AsciiString difficulty(colon + 1);
++		SlotState state;
++		if (difficulty == "easy") state = SLOT_EASY_AI;
++		else if (difficulty == "medium") state = SLOT_MED_AI;
++		else if (difficulty == "hard") state = SLOT_BRUTAL_AI;
++		else return fail(2, "bad difficulty in '%s'", spec);
++		Int templateNum = ThePlayerTemplateStore->getTemplateNumByName(faction);
++		if (templateNum < 0)
++			return fail(3, "unknown faction '%s'", faction.str());
++
++		GameSlot *slot = TheSkirmishGameInfo->getSlot((Int)i);
++		slot->setState(state);
++		slot->setPlayerTemplate(templateNum);
++		slot->setColor(-1);
++		slot->setStartPos(-1);
++		slot->setTeamNumber(-1);
++		factions.push_back(faction);
++		difficulties.push_back(difficulty);
++	}
++	for (Int i = (Int)o.players.size(); i < MAX_SLOTS; ++i)
++		TheSkirmishGameInfo->getSlot(i)->setState(SLOT_CLOSED);
++
++	const MapMetaData *md = TheMapCache->findMap(o.map);
++	if (!md)
++		return fail(3, "map not found '%s'", o.map.str());
++	if (!md->m_isMultiplayer)
++		return fail(3, "not a multiplayer map '%s'", o.map.str());
++	if (md->m_numPlayers < (Int)o.players.size())
++		return fail(3, "map has fewer start positions than players '%s'", o.map.str());
++
++	TheSkirmishGameInfo->setMap(o.map);
++	TheSkirmishGameInfo->setMapCRC(md->m_CRC);
++	TheSkirmishGameInfo->setMapSize(md->m_filesize);
++	Money cash;
++	cash.deposit(o.cash, FALSE, FALSE);
++	TheSkirmishGameInfo->setStartingCash(cash);
++
++	const Int seed = o.seed >= 0 ? o.seed : (Int)GetTickCount();
++	TheWritableGlobalData->m_mapName = TheSkirmishGameInfo->getMap();
++	TheSkirmishGameInfo->startGame(0);
++	TheSkirmishGameInfo->setSeed(seed);
++	InitRandom(seed);
++
++	// The headless loop does not process TheMessageStream, so post straight to TheCommandList (as RecorderClass::playbackFile does)
++	GameMessage *msg = newInstance(GameMessage)(GameMessage::MSG_NEW_GAME);
++	msg->appendIntegerArgument(GAME_SKIRMISH);
++	msg->appendIntegerArgument(DIFFICULTY_NORMAL);
++	msg->appendIntegerArgument(0);
++	TheCommandList->appendMessage(msg);
++
++	const UnsignedInt maxFrame = (UnsignedInt)o.maxMinutes * 60 * LOGICFRAMES_PER_SECOND;
++	const size_t n = o.players.size();
++	std::vector<Int> atStart(n, -1), at2min(n, -1);
++	Bool started = FALSE;
++	const char *outcome = nullptr;
++	for (Int idle = 0; !outcome; )
++	{
++		TheGameClient->updateHeadless();
++		TheGameLogic->UPDATE();
++		// Nobody reads TheMessageStream here (selection and CRC messages for the local observer); drop them
++		while (GameMessage *m = TheMessageStream->getFirstMessage())
++			deleteInstance(m);
++
++		const UnsignedInt frame = TheGameLogic->getFrame();
++		if (!started)
++		{
++			if (TheGameLogic->getGameMode() == GAME_SKIRMISH && frame >= 1)
++			{
++				started = TRUE;
++				for (size_t i = 0; i < n; ++i)
++					atStart[i] = countStructures(ThePlayerList->getPlayerFromSlotIndex((Int)i));
++			}
++			else if (++idle > 1000)
++				return fail(3, "game did not start%s");
++			continue;
++		}
++		if (at2min[0] < 0 && frame >= (UnsignedInt)FRAMES_2MIN)
++		{
++			for (size_t i = 0; i < n; ++i)
++				at2min[i] = countStructures(ThePlayerList->getPlayerFromSlotIndex((Int)i));
++		}
++		if (TheVictoryConditions->getEndFrame() != 0)
++			outcome = "win";
++		else if (frame >= maxFrame)
++			outcome = "timeout";
++		if (frame % (10 * 60 * LOGICFRAMES_PER_SECOND) == 0)
++		{
++			printf("[AIMatch] game time %u min\n", frame / (60 * LOGICFRAMES_PER_SECOND));
++			fflush(stdout);
++		}
++	}
++
++	std::vector<Bool> won(n, FALSE);
++	Int winners = 0;
++	if (strcmp(outcome, "win") == 0)
++	{
++		for (size_t i = 0; i < n; ++i)
++		{
++			won[i] = TheVictoryConditions->hasAchievedVictory(ThePlayerList->getPlayerFromSlotIndex((Int)i));
++			winners += won[i] ? 1 : 0;
++		}
++		if (winners == 0)
++			outcome = "draw";
++	}
++
++	const UnsignedInt endFrame = TheGameLogic->getFrame();
++	const UnsignedInt crc = TheGameLogic->getCRC(CRC_RECALC);
++	std::string tmpPath = std::string(o.resultPath.str()) + ".tmp";
++	FILE *f = fopen(tmpPath.c_str(), "w");
++	if (!f)
++		return fail(3, "cannot write '%s'", tmpPath.c_str());
++	fprintf(f, "{\"schema\": 1, \"seed\": %d, \"map\": \"%s\", \"outcome\": \"%s\", \"end_frame\": %u, "
++		"\"game_seconds\": %.1f, \"final_crc\": %u, \"players\": [",
++		seed, jsonEscape(o.map.str()).c_str(), outcome, endFrame,
++		(double)endFrame / LOGICFRAMES_PER_SECOND, crc);
++	for (size_t i = 0; i < n; ++i)
++	{
++		char at2[16];
++		if (at2min[i] < 0) strcpy(at2, "null"); else snprintf(at2, sizeof(at2), "%d", at2min[i]);
++		fprintf(f, "%s{\"slot\": %d, \"faction\": \"%s\", \"difficulty\": \"%s\", \"won\": %s, "
++			"\"structures_at_start\": %d, \"structures_at_2min\": %s}",
++			i ? ", " : "", (int)i, factions[i].str(), difficulties[i].str(), won[i] ? "true" : "false", atStart[i], at2);
++	}
++	fprintf(f, "]}\n");
++	fflush(f);
++	fclose(f);
++	rename(tmpPath.c_str(), o.resultPath.str());
++
++	printf("[AIMatch] %s at frame %u\n", outcome, endFrame);
++	fflush(stdout);
++	fflush(stderr);
++	// Nobody has tested tearing down a loaded recorded skirmish here; a crash on exit would turn a played match into "crash"
++	_exit(0);
++}
+diff --git a/Core/GameEngine/Source/Common/CommandLine.cpp b/Core/GameEngine/Source/Common/CommandLine.cpp
+index 22eef30..32fa85d 100644
+--- a/Core/GameEngine/Source/Common/CommandLine.cpp
++++ b/Core/GameEngine/Source/Common/CommandLine.cpp
+@@ -30,6 +30,7 @@
+ 	#define _S_IFDIR S_IFDIR
+ #endif
+ 
++#include "Common/AIMatch.h"
+ #include "Common/ArchiveFileSystem.h"
+ #include "Common/CommandLine.h"
+ #include "Common/CRCDebug.h"
+@@ -428,6 +429,48 @@ Int parseHeadless(char *args[], int num)
+ 	return 1;
+ }
+ 
++// GeneralsX @feature ai-lab 07/11/2026 Headless AI-vs-AI match flags, see Common/AIMatch.h.
++Int parseAIMatch(char *args[], int num)
++{
++	TheAIMatchOptions.enabled = TRUE;
++	TheWritableGlobalData->m_playIntro = FALSE;
++	TheWritableGlobalData->m_playSizzle = FALSE;
++	TheWritableGlobalData->m_shellMapOn = FALSE;
++	rts::ClientInstance::setMultiInstance(TRUE);
++	rts::ClientInstance::skipPrimaryInstance();
++	return 1;
++}
++Int parseAIMap(char *args[], int num)
++{
++	if (num > 1) { TheAIMatchOptions.map = args[1]; return 2; }
++	return 1;
++}
++Int parseAIPlayer(char *args[], int num)
++{
++	if (num > 1) { TheAIMatchOptions.players.push_back(AsciiString(args[1])); return 2; }
++	return 1;
++}
++Int parseAISeed(char *args[], int num)
++{
++	if (num > 1) { TheAIMatchOptions.seed = atoi(args[1]); return 2; }
++	return 1;
++}
++Int parseAICash(char *args[], int num)
++{
++	if (num > 1) { TheAIMatchOptions.cash = atoi(args[1]); return 2; }
++	return 1;
++}
++Int parseAIMaxMinutes(char *args[], int num)
++{
++	if (num > 1) { TheAIMatchOptions.maxMinutes = atoi(args[1]); return 2; }
++	return 1;
++}
++Int parseAIResult(char *args[], int num)
++{
++	if (num > 1) { TheAIMatchOptions.resultPath = args[1]; return 2; }
++	return 1;
++}
++
+ Int parseReplay(char *args[], int num)
+ {
+ 	if (num > 1)
+@@ -1192,6 +1235,15 @@ static CommandLineParam paramsForStartup[] =
+ 	// You can also include wildcards. The file must be in the replay folder or in a subfolder.
+ 	{ "-replay", parseReplay },
+ 
++	// GeneralsX @feature ai-lab 07/11/2026 Headless AI-vs-AI match. Startup table, so the shell map is off before engine init (as -replay).
++	{ "-aiMatch", parseAIMatch },
++	{ "-aiMap", parseAIMap },
++	{ "-aiPlayer", parseAIPlayer },
++	{ "-aiSeed", parseAISeed },
++	{ "-aiCash", parseAICash },
++	{ "-aiMaxMinutes", parseAIMaxMinutes },
++	{ "-aiResult", parseAIResult },
++
+ 	// TheSuperHackers @feature helmutbuhler 23/05/2025
+ 	// Simulate each replay in a separate process and use 1..N processes at the same time.
+ 	// (If you have 4 cores, call it with -jobs 4)
+diff --git a/GeneralsMD/Code/GameEngine/Source/Common/GameMain.cpp b/GeneralsMD/Code/GameEngine/Source/Common/GameMain.cpp
+index ed94ec7..b6fb45e 100644
+--- a/GeneralsMD/Code/GameEngine/Source/Common/GameMain.cpp
++++ b/GeneralsMD/Code/GameEngine/Source/Common/GameMain.cpp
+@@ -28,6 +28,7 @@
+ 
+ #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
+ 
++#include "Common/AIMatch.h"
+ #include "Common/FramePacer.h"
+ #include "Common/GameEngine.h"
+ #include "Common/ReplaySimulation.h"
+@@ -45,7 +46,12 @@ Int GameMain()
+ 	TheGameEngine = CreateGameEngine();
+ 	TheGameEngine->init();
+ 
+-	if (!TheGlobalData->m_simulateReplays.empty())
++	// GeneralsX @feature ai-lab 07/11/2026 Headless AI-vs-AI match
++	if (TheAIMatchOptions.enabled)
++	{
++		exitcode = AIMatch::run();
++	}
++	else if (!TheGlobalData->m_simulateReplays.empty())
+ 	{
+ 		exitcode = ReplaySimulation::simulateReplays(TheGlobalData->m_simulateReplays, TheGlobalData->m_simulateReplayJobs);
+ 	}
+diff --git a/GeneralsMD/Code/GameEngine/Source/GameLogic/System/GameLogic.cpp b/GeneralsMD/Code/GameEngine/Source/GameLogic/System/GameLogic.cpp
+index b9341f0..ba5de18 100644
+--- a/GeneralsMD/Code/GameEngine/Source/GameLogic/System/GameLogic.cpp
++++ b/GeneralsMD/Code/GameEngine/Source/GameLogic/System/GameLogic.cpp
+@@ -100,6 +100,7 @@
+ #include "GameLogic/CaveSystem.h"
+ #include "GameLogic/CrateSystem.h"
+ #include "GameLogic/FPUControl.h"
++#include "Common/AIMatch.h"
+ #include "GameLogic/GameLogic.h"
+ #include "GameLogic/Locomotor.h"
+ #include "GameLogic/Object.h"
+@@ -1382,7 +1383,8 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
+ 	//****************************//
+ 
+ 	// Get the m_loadScreen for this kind of game
+-	if(!m_loadScreen && !(TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_SIMULATION_PLAYBACK))
++	// GeneralsX @feature ai-lab 07/11/2026 No load screen in headless -aiMatch either
++	if(!m_loadScreen && !(TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_SIMULATION_PLAYBACK) && !TheAIMatchOptions.enabled)
+ 	{
+ 		m_loadScreen = getLoadScreen( loadingSaveGame );
+ 		if(m_loadScreen)
+-- 
+2.54.0 (Apple Git-157)
+

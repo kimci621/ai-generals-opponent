@@ -1,0 +1,26 @@
+Hi, thanks for downloading the 1.2 version of my mod first :)
+
+So, to install the improved AI mod, all you have to do is drag the Data folder here into the main folder of your modded game located in EA Games (the one in which you already have a Data folder present)
+
+
+IF YOU WANT TO ADD IT ON GENLAUNCHER WITHOUT REPLACING THE BASE GAME:
+You can create an add-on on GenLauncher by clicking on "Add mod from files", then you can directly click on the .rar file of this mod
+
+(I am in contact with a member of the GenLauncher team so maybe the mod will be available for everyone in the GenLauncher directly soon!)
+
+
+Keep in mind :
+
+- Only the Hard AI have been improved for a better challenge, not the Easy and Medium ones.
+
+- I advise you to play on maps where the AIs have a large empty area around their command posts to better execute their builds.
+
+- I also don't recommend you to activate "Limit Superweapons" due to USA Superweapon AI and some others generals who will build multiple superweapons.
+
+- Finally, remember that AI increases the chances of mismatching online, so I don't recommand you to play online with too many AI on the battlefield.
+
+
+
+I hope you'll enjoy the increased difficulty x)
+
+CobraThiboK
