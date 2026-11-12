@@ -1,0 +1,28 @@
+From c348fb1664e966f0a555f0eee480c480ec92ce02 Mon Sep 17 00:00:00 2001
+From: Amir Latipov <kimciwork@gmail.com>
+Date: Thu, 12 Nov 2026 16:24:32 +0300
+Subject: [PATCH] feat(ai-lab): AI_LAB_TRACE=ScriptErr prints script engine
+ debug messages
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../GameEngine/Source/GameLogic/ScriptEngine/ScriptEngine.cpp  | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/GeneralsMD/Code/GameEngine/Source/GameLogic/ScriptEngine/ScriptEngine.cpp b/GeneralsMD/Code/GameEngine/Source/GameLogic/ScriptEngine/ScriptEngine.cpp
+index 9f4275a..a1327aa 100644
+--- a/GeneralsMD/Code/GameEngine/Source/GameLogic/ScriptEngine/ScriptEngine.cpp
++++ b/GeneralsMD/Code/GameEngine/Source/GameLogic/ScriptEngine/ScriptEngine.cpp
+@@ -8542,6 +8542,9 @@ void ScriptEngine::forceUnfreezeTime()
+ 
+ void ScriptEngine::AppendDebugMessage(const AsciiString& strToAdd, Bool forcePause)
+ {
++	// ai-lab: AI_LAB_TRACE=ScriptErr shows script errors (e.g. a unit without the hunt command button) in stderr
++	if (AIMatch::traceWanted("ScriptErr"))
++		AIMatch::trace("script-debug %s", strToAdd.str());
+ #ifdef INTENSE_DEBUG
+ 	DEBUG_LOG(("-SCRIPT- %d %s", TheGameLogic->getFrame(), strToAdd.str()));
+ #endif
+-- 
+2.54.0 (Apple Git-157)
+

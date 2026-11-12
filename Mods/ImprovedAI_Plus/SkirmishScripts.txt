@@ -7084,7 +7084,7 @@ chunk "PlayerScriptsList" 5
         normal u8 0
         hard u8 1
         subroutine u8 0
-        delaySeconds i32 10
+        delaySeconds i32 7
         chunk "OrCondition" 1
           chunk "Condition" 4
             type i32 3
@@ -11723,6 +11723,33 @@ chunk "PlayerScriptsList" 5
           params i32 1
           param TEAM 0 0 "<This Team>"
       chunk "Script" 2
+        name s "USA Attack Hunt OC"
+        comment s ""
+        conditionComment s ""
+        actionComment s ""
+        active u8 1
+        oneShot u8 0
+        easy u8 1
+        normal u8 1
+        hard u8 1
+        subroutine u8 1
+        delaySeconds i32 0
+        chunk "OrCondition" 1
+          chunk "Condition" 4
+            type i32 3
+            name key "CONDITION_TRUE" 3
+            params i32 0
+        chunk "ScriptAction" 2
+          type i32 55
+          name key "TEAM_EXIT_ALL" 3
+          params i32 1
+          param TEAM 0 0 "<This Team>"
+        chunk "ScriptAction" 2
+          type i32 60
+          name key "TEAM_HUNT" 3
+          params i32 1
+          param TEAM 0 0 "<This Team>"
+      chunk "Script" 2
         name s "USA Base Invaded Hunt"
         comment s ""
         conditionComment s ""
@@ -11796,6 +11823,28 @@ chunk "PlayerScriptsList" 5
         actionComment s ""
         active u8 1
         oneShot u8 1
+        easy u8 1
+        normal u8 1
+        hard u8 1
+        subroutine u8 1
+        delaySeconds i32 0
+        chunk "OrCondition" 1
+          chunk "Condition" 4
+            type i32 3
+            name key "CONDITION_TRUE" 3
+            params i32 0
+        chunk "ScriptAction" 2
+          type i32 10
+          name key "CALL_SUBROUTINE" 3
+          params i32 1
+          param SCRIPT_SUBROUTINE 0 0 "USA Sequence - Enter Fire Base"
+      chunk "Script" 2
+        name s "USA Behavior - Enter Fire Base OC"
+        comment s ""
+        conditionComment s ""
+        actionComment s ""
+        active u8 1
+        oneShot u8 0
         easy u8 1
         normal u8 1
         hard u8 1
@@ -14505,6 +14554,13 @@ chunk "PlayerScriptsList" 5
           params i32 2
           param TEAM 0 0 "<This Team>"
           param ATTACK_PRIORITY_SET 0 0 "USA Tech Building Priority"
+        chunk "ScriptAction" 2
+          type i32 228
+          name key "TEAM_MOVE_TOWARDS_NEAREST_OBJECT_TYPE" 3
+          params i32 3
+          param TEAM 0 0 "<This Team>"
+          param OBJECT_TYPE 0 0 "TechOilDerrick"
+          param TRIGGER_AREA 0 0 "CombatZone"
         chunk "ScriptAction" 2
           type i32 278
           name key "TEAM_HUNT_WITH_COMMAND_BUTTON" 3
@@ -21027,7 +21083,7 @@ chunk "PlayerScriptsList" 5
         normal u8 0
         hard u8 1
         subroutine u8 0
-        delaySeconds i32 10
+        delaySeconds i32 7
         chunk "OrCondition" 1
           chunk "Condition" 4
             type i32 3
@@ -25571,6 +25627,28 @@ chunk "PlayerScriptsList" 5
           params i32 1
           param TEAM 0 0 "<This Team>"
       chunk "Script" 2
+        name s "China Attack Hunt OC"
+        comment s ""
+        conditionComment s ""
+        actionComment s ""
+        active u8 1
+        oneShot u8 0
+        easy u8 1
+        normal u8 1
+        hard u8 1
+        subroutine u8 1
+        delaySeconds i32 0
+        chunk "OrCondition" 1
+          chunk "Condition" 4
+            type i32 3
+            name key "CONDITION_TRUE" 3
+            params i32 0
+        chunk "ScriptAction" 2
+          type i32 60
+          name key "TEAM_HUNT" 3
+          params i32 1
+          param TEAM 0 0 "<This Team>"
+      chunk "Script" 2
         name s "China Behavior: Helix Attack"
         comment s ""
         conditionComment s ""
@@ -28027,6 +28105,13 @@ chunk "PlayerScriptsList" 5
           params i32 2
           param TEAM 0 0 "<This Team>"
           param ATTACK_PRIORITY_SET 0 0 "China Tech Building Priority"
+        chunk "ScriptAction" 2
+          type i32 228
+          name key "TEAM_MOVE_TOWARDS_NEAREST_OBJECT_TYPE" 3
+          params i32 3
+          param TEAM 0 0 "<This Team>"
+          param OBJECT_TYPE 0 0 "TechOilDerrick"
+          param TRIGGER_AREA 0 0 "CombatZone"
         chunk "ScriptAction" 2
           type i32 278
           name key "TEAM_HUNT_WITH_COMMAND_BUTTON" 3
@@ -34510,7 +34595,7 @@ chunk "PlayerScriptsList" 5
         normal u8 0
         hard u8 1
         subroutine u8 0
-        delaySeconds i32 10
+        delaySeconds i32 7
         chunk "OrCondition" 1
           chunk "Condition" 4
             type i32 3
@@ -38988,6 +39073,29 @@ chunk "PlayerScriptsList" 5
           param TEAM 0 0 "<This Team>"
           param SCRIPT 0 0 "GLA Seq: Attack Back Rush"
       chunk "Script" 2
+        name s "GLA Behavior: Attack Back Rush OC"
+        comment s ""
+        conditionComment s ""
+        actionComment s ""
+        active u8 1
+        oneShot u8 0
+        easy u8 1
+        normal u8 1
+        hard u8 1
+        subroutine u8 1
+        delaySeconds i32 0
+        chunk "OrCondition" 1
+          chunk "Condition" 4
+            type i32 3
+            name key "CONDITION_TRUE" 3
+            params i32 0
+        chunk "ScriptAction" 2
+          type i32 190
+          name key "TEAM_EXECUTE_SEQUENTIAL_SCRIPT" 3
+          params i32 2
+          param TEAM 0 0 "<This Team>"
+          param SCRIPT 0 0 "GLA Seq: Attack Back Rush"
+      chunk "Script" 2
         name s "GLA Seq: Attack Back Rush"
         comment s ""
         conditionComment s ""
@@ -39018,11 +39126,10 @@ chunk "PlayerScriptsList" 5
           param SKIRMISH_WAYPOINT_PATH 0 0 "Backdoor"
           param BOOLEAN 1 0 ""
         chunk "ScriptAction" 2
-          type i32 278
-          name key "TEAM_HUNT_WITH_COMMAND_BUTTON" 3
-          params i32 2
+          type i32 60
+          name key "TEAM_HUNT" 3
+          params i32 1
           param TEAM 0 0 "<This Team>"
-          param COMMANDBUTTON_ALL_ABILITIES 0 0 "Command_SabotageBuilding"
     chunk "ScriptGroup" 2
       name s "GLA Team Behavior"
       active u8 1
@@ -41634,6 +41741,13 @@ chunk "PlayerScriptsList" 5
           params i32 2
           param TEAM 0 0 "<This Team>"
           param ATTACK_PRIORITY_SET 0 0 "GLA Tech Building Priority"
+        chunk "ScriptAction" 2
+          type i32 228
+          name key "TEAM_MOVE_TOWARDS_NEAREST_OBJECT_TYPE" 3
+          params i32 3
+          param TEAM 0 0 "<This Team>"
+          param OBJECT_TYPE 0 0 "TechOilDerrick"
+          param TRIGGER_AREA 0 0 "CombatZone"
         chunk "ScriptAction" 2
           type i32 278
           name key "TEAM_HUNT_WITH_COMMAND_BUTTON" 3
@@ -47664,7 +47778,7 @@ chunk "PlayerScriptsList" 5
         normal u8 0
         hard u8 1
         subroutine u8 0
-        delaySeconds i32 10
+        delaySeconds i32 7
         chunk "OrCondition" 1
           chunk "Condition" 4
             type i32 3
@@ -52367,6 +52481,33 @@ chunk "PlayerScriptsList" 5
           params i32 1
           param TEAM 0 0 "<This Team>"
       chunk "Script" 2
+        name s "USA Attack Hunt OC"
+        comment s ""
+        conditionComment s ""
+        actionComment s ""
+        active u8 1
+        oneShot u8 0
+        easy u8 1
+        normal u8 1
+        hard u8 1
+        subroutine u8 1
+        delaySeconds i32 0
+        chunk "OrCondition" 1
+          chunk "Condition" 4
+            type i32 3
+            name key "CONDITION_TRUE" 3
+            params i32 0
+        chunk "ScriptAction" 2
+          type i32 55
+          name key "TEAM_EXIT_ALL" 3
+          params i32 1
+          param TEAM 0 0 "<This Team>"
+        chunk "ScriptAction" 2
+          type i32 60
+          name key "TEAM_HUNT" 3
+          params i32 1
+          param TEAM 0 0 "<This Team>"
+      chunk "Script" 2
         name s "USA Base Invaded Hunt"
         comment s ""
         conditionComment s ""
@@ -55347,6 +55488,13 @@ chunk "PlayerScriptsList" 5
           params i32 2
           param TEAM 0 0 "<This Team>"
           param ATTACK_PRIORITY_SET 0 0 "USA Tech Building Priority"
+        chunk "ScriptAction" 2
+          type i32 228
+          name key "TEAM_MOVE_TOWARDS_NEAREST_OBJECT_TYPE" 3
+          params i32 3
+          param TEAM 0 0 "<This Team>"
+          param OBJECT_TYPE 0 0 "TechOilDerrick"
+          param TRIGGER_AREA 0 0 "CombatZone"
         chunk "ScriptAction" 2
           type i32 259
           name key "SKIRMISH_WAIT_FOR_COMMANDBUTTON_AVAILABLE_ALL" 3
@@ -61672,7 +61820,7 @@ chunk "PlayerScriptsList" 5
         normal u8 0
         hard u8 1
         subroutine u8 0
-        delaySeconds i32 10
+        delaySeconds i32 7
         chunk "OrCondition" 1
           chunk "Condition" 4
             type i32 3
@@ -66453,6 +66601,33 @@ chunk "PlayerScriptsList" 5
           params i32 1
           param TEAM 0 0 "<This Team>"
       chunk "Script" 2
+        name s "USA Attack Hunt OC"
+        comment s ""
+        conditionComment s ""
+        actionComment s ""
+        active u8 1
+        oneShot u8 0
+        easy u8 1
+        normal u8 1
+        hard u8 1
+        subroutine u8 1
+        delaySeconds i32 0
+        chunk "OrCondition" 1
+          chunk "Condition" 4
+            type i32 3
+            name key "CONDITION_TRUE" 3
+            params i32 0
+        chunk "ScriptAction" 2
+          type i32 55
+          name key "TEAM_EXIT_ALL" 3
+          params i32 1
+          param TEAM 0 0 "<This Team>"
+        chunk "ScriptAction" 2
+          type i32 60
+          name key "TEAM_HUNT" 3
+          params i32 1
+          param TEAM 0 0 "<This Team>"
+      chunk "Script" 2
         name s "USA Base Invaded Hunt"
         comment s ""
         conditionComment s ""
@@ -69306,6 +69481,13 @@ chunk "PlayerScriptsList" 5
           params i32 2
           param TEAM 0 0 "<This Team>"
           param ATTACK_PRIORITY_SET 0 0 "USA Tech Building Priority"
+        chunk "ScriptAction" 2
+          type i32 228
+          name key "TEAM_MOVE_TOWARDS_NEAREST_OBJECT_TYPE" 3
+          params i32 3
+          param TEAM 0 0 "<This Team>"
+          param OBJECT_TYPE 0 0 "TechOilDerrick"
+          param TRIGGER_AREA 0 0 "CombatZone"
         chunk "ScriptAction" 2
           type i32 278
           name key "TEAM_HUNT_WITH_COMMAND_BUTTON" 3
@@ -75664,7 +75846,7 @@ chunk "PlayerScriptsList" 5
         normal u8 0
         hard u8 1
         subroutine u8 0
-        delaySeconds i32 10
+        delaySeconds i32 7
         chunk "OrCondition" 1
           chunk "Condition" 4
             type i32 3
@@ -80426,6 +80608,33 @@ chunk "PlayerScriptsList" 5
           params i32 1
           param TEAM 0 0 "<This Team>"
       chunk "Script" 2
+        name s "USA Attack Hunt OC"
+        comment s ""
+        conditionComment s ""
+        actionComment s ""
+        active u8 1
+        oneShot u8 0
+        easy u8 1
+        normal u8 1
+        hard u8 1
+        subroutine u8 1
+        delaySeconds i32 0
+        chunk "OrCondition" 1
+          chunk "Condition" 4
+            type i32 3
+            name key "CONDITION_TRUE" 3
+            params i32 0
+        chunk "ScriptAction" 2
+          type i32 55
+          name key "TEAM_EXIT_ALL" 3
+          params i32 1
+          param TEAM 0 0 "<This Team>"
+        chunk "ScriptAction" 2
+          type i32 60
+          name key "TEAM_HUNT" 3
+          params i32 1
+          param TEAM 0 0 "<This Team>"
+      chunk "Script" 2
         name s "USA Base Invaded Hunt"
         comment s ""
         conditionComment s ""
@@ -83213,6 +83422,13 @@ chunk "PlayerScriptsList" 5
           params i32 2
           param TEAM 0 0 "<This Team>"
           param ATTACK_PRIORITY_SET 0 0 "USA Tech Building Priority"
+        chunk "ScriptAction" 2
+          type i32 228
+          name key "TEAM_MOVE_TOWARDS_NEAREST_OBJECT_TYPE" 3
+          params i32 3
+          param TEAM 0 0 "<This Team>"
+          param OBJECT_TYPE 0 0 "TechOilDerrick"
+          param TRIGGER_AREA 0 0 "CombatZone"
         chunk "ScriptAction" 2
           type i32 259
           name key "SKIRMISH_WAIT_FOR_COMMANDBUTTON_AVAILABLE_ALL" 3
@@ -89796,7 +90012,7 @@ chunk "PlayerScriptsList" 5
         normal u8 0
         hard u8 1
         subroutine u8 0
-        delaySeconds i32 10
+        delaySeconds i32 7
         chunk "OrCondition" 1
           chunk "Condition" 4
             type i32 3
@@ -94283,6 +94499,28 @@ chunk "PlayerScriptsList" 5
           name key "TEAM_HUNT" 3
           params i32 1
           param TEAM 0 0 "<This Team>"
+      chunk "Script" 2
+        name s "China Attack Hunt OC"
+        comment s ""
+        conditionComment s ""
+        actionComment s ""
+        active u8 1
+        oneShot u8 0
+        easy u8 1
+        normal u8 1
+        hard u8 1
+        subroutine u8 1
+        delaySeconds i32 0
+        chunk "OrCondition" 1
+          chunk "Condition" 4
+            type i32 3
+            name key "CONDITION_TRUE" 3
+            params i32 0
+        chunk "ScriptAction" 2
+          type i32 60
+          name key "TEAM_HUNT" 3
+          params i32 1
+          param TEAM 0 0 "<This Team>"
     chunk "ScriptGroup" 2
       name s "China Team Behaviors"
       active u8 1
@@ -96748,6 +96986,13 @@ chunk "PlayerScriptsList" 5
           params i32 2
           param TEAM 0 0 "<This Team>"
           param ATTACK_PRIORITY_SET 0 0 "China Tech Building Priority"
+        chunk "ScriptAction" 2
+          type i32 228
+          name key "TEAM_MOVE_TOWARDS_NEAREST_OBJECT_TYPE" 3
+          params i32 3
+          param TEAM 0 0 "<This Team>"
+          param OBJECT_TYPE 0 0 "TechOilDerrick"
+          param TRIGGER_AREA 0 0 "CombatZone"
         chunk "ScriptAction" 2
           type i32 259
           name key "SKIRMISH_WAIT_FOR_COMMANDBUTTON_AVAILABLE_ALL" 3
@@ -103337,7 +103582,7 @@ chunk "PlayerScriptsList" 5
         normal u8 0
         hard u8 1
         subroutine u8 0
-        delaySeconds i32 10
+        delaySeconds i32 7
         chunk "OrCondition" 1
           chunk "Condition" 4
             type i32 3
@@ -107871,6 +108116,28 @@ chunk "PlayerScriptsList" 5
           params i32 1
           param TEAM 0 0 "<This Team>"
       chunk "Script" 2
+        name s "China Attack Hunt OC"
+        comment s ""
+        conditionComment s ""
+        actionComment s ""
+        active u8 1
+        oneShot u8 0
+        easy u8 1
+        normal u8 1
+        hard u8 1
+        subroutine u8 1
+        delaySeconds i32 0
+        chunk "OrCondition" 1
+          chunk "Condition" 4
+            type i32 3
+            name key "CONDITION_TRUE" 3
+            params i32 0
+        chunk "ScriptAction" 2
+          type i32 60
+          name key "TEAM_HUNT" 3
+          params i32 1
+          param TEAM 0 0 "<This Team>"
+      chunk "Script" 2
         name s "China Behavior: Helix Attack"
         comment s ""
         conditionComment s ""
@@ -110437,6 +110704,13 @@ chunk "PlayerScriptsList" 5
           params i32 2
           param TEAM 0 0 "<This Team>"
           param ATTACK_PRIORITY_SET 0 0 "China Tech Building Priority"
+        chunk "ScriptAction" 2
+          type i32 228
+          name key "TEAM_MOVE_TOWARDS_NEAREST_OBJECT_TYPE" 3
+          params i32 3
+          param TEAM 0 0 "<This Team>"
+          param OBJECT_TYPE 0 0 "TechOilDerrick"
+          param TRIGGER_AREA 0 0 "CombatZone"
         chunk "ScriptAction" 2
           type i32 259
           name key "SKIRMISH_WAIT_FOR_COMMANDBUTTON_AVAILABLE_ALL" 3
@@ -116838,7 +117112,7 @@ chunk "PlayerScriptsList" 5
         normal u8 0
         hard u8 1
         subroutine u8 0
-        delaySeconds i32 10
+        delaySeconds i32 7
         chunk "OrCondition" 1
           chunk "Condition" 4
             type i32 3
@@ -121502,6 +121776,33 @@ chunk "PlayerScriptsList" 5
           params i32 1
           param TEAM 0 0 "<This Team>"
       chunk "Script" 2
+        name s "China Attack Hunt OC"
+        comment s ""
+        conditionComment s ""
+        actionComment s ""
+        active u8 1
+        oneShot u8 0
+        easy u8 1
+        normal u8 1
+        hard u8 1
+        subroutine u8 1
+        delaySeconds i32 0
+        chunk "OrCondition" 1
+          chunk "Condition" 4
+            type i32 3
+            name key "CONDITION_TRUE" 3
+            params i32 0
+        chunk "ScriptAction" 2
+          type i32 55
+          name key "TEAM_EXIT_ALL" 3
+          params i32 1
+          param TEAM 0 0 "<This Team>"
+        chunk "ScriptAction" 2
+          type i32 60
+          name key "TEAM_HUNT" 3
+          params i32 1
+          param TEAM 0 0 "<This Team>"
+      chunk "Script" 2
         name s "China Behavior: Helix Attack"
         comment s ""
         conditionComment s ""
@@ -121712,6 +122013,29 @@ chunk "PlayerScriptsList" 5
         actionComment s ""
         active u8 1
         oneShot u8 1
+        easy u8 1
+        normal u8 1
+        hard u8 1
+        subroutine u8 1
+        delaySeconds i32 0
+        chunk "OrCondition" 1
+          chunk "Condition" 4
+            type i32 3
+            name key "CONDITION_TRUE" 3
+            params i32 0
+        chunk "ScriptAction" 2
+          type i32 278
+          name key "TEAM_HUNT_WITH_COMMAND_BUTTON" 3
+          params i32 2
+          param TEAM 0 0 "<This Team>"
+          param COMMANDBUTTON_ALL_ABILITIES 0 0 "Command_ChinaInfantryRedGuardCaptureBuilding"
+      chunk "Script" 2
+        name s "China Behavior: Capture Hunt OC"
+        comment s ""
+        conditionComment s ""
+        actionComment s ""
+        active u8 1
+        oneShot u8 0
         easy u8 1
         normal u8 1
         hard u8 1
@@ -124136,6 +124460,13 @@ chunk "PlayerScriptsList" 5
           params i32 2
           param TEAM 0 0 "<This Team>"
           param ATTACK_PRIORITY_SET 0 0 "China Tech Building Priority"
+        chunk "ScriptAction" 2
+          type i32 228
+          name key "TEAM_MOVE_TOWARDS_NEAREST_OBJECT_TYPE" 3
+          params i32 3
+          param TEAM 0 0 "<This Team>"
+          param OBJECT_TYPE 0 0 "TechOilDerrick"
+          param TRIGGER_AREA 0 0 "CombatZone"
         chunk "ScriptAction" 2
           type i32 259
           name key "SKIRMISH_WAIT_FOR_COMMANDBUTTON_AVAILABLE_ALL" 3
@@ -130637,7 +130968,7 @@ chunk "PlayerScriptsList" 5
         normal u8 0
         hard u8 1
         subroutine u8 0
-        delaySeconds i32 10
+        delaySeconds i32 7
         chunk "OrCondition" 1
           chunk "Condition" 4
             type i32 3
@@ -135174,6 +135505,29 @@ chunk "PlayerScriptsList" 5
           param TEAM 0 0 "<This Team>"
           param SCRIPT 0 0 "GLA Seq: Attack Back Rush"
       chunk "Script" 2
+        name s "GLA Behavior: Attack Back Rush OC"
+        comment s ""
+        conditionComment s ""
+        actionComment s ""
+        active u8 1
+        oneShot u8 0
+        easy u8 1
+        normal u8 1
+        hard u8 1
+        subroutine u8 1
+        delaySeconds i32 0
+        chunk "OrCondition" 1
+          chunk "Condition" 4
+            type i32 3
+            name key "CONDITION_TRUE" 3
+            params i32 0
+        chunk "ScriptAction" 2
+          type i32 190
+          name key "TEAM_EXECUTE_SEQUENTIAL_SCRIPT" 3
+          params i32 2
+          param TEAM 0 0 "<This Team>"
+          param SCRIPT 0 0 "GLA Seq: Attack Back Rush"
+      chunk "Script" 2
         name s "GLA Seq: Attack Back Rush"
         comment s ""
         conditionComment s ""
@@ -137660,6 +138014,13 @@ chunk "PlayerScriptsList" 5
           params i32 2
           param TEAM 0 0 "<This Team>"
           param ATTACK_PRIORITY_SET 0 0 "GLA Tech Building Priority"
+        chunk "ScriptAction" 2
+          type i32 228
+          name key "TEAM_MOVE_TOWARDS_NEAREST_OBJECT_TYPE" 3
+          params i32 3
+          param TEAM 0 0 "<This Team>"
+          param OBJECT_TYPE 0 0 "TechOilDerrick"
+          param TRIGGER_AREA 0 0 "CombatZone"
         chunk "ScriptAction" 2
           type i32 278
           name key "TEAM_HUNT_WITH_COMMAND_BUTTON" 3
@@ -143895,7 +144256,7 @@ chunk "PlayerScriptsList" 5
         normal u8 0
         hard u8 1
         subroutine u8 0
-        delaySeconds i32 10
+        delaySeconds i32 7
         chunk "OrCondition" 1
           chunk "Condition" 4
             type i32 3
@@ -148455,6 +148816,29 @@ chunk "PlayerScriptsList" 5
           param TEAM 0 0 "<This Team>"
           param SCRIPT 0 0 "GLA Seq: Attack Back Rush"
       chunk "Script" 2
+        name s "GLA Behavior: Attack Back Rush OC"
+        comment s ""
+        conditionComment s ""
+        actionComment s ""
+        active u8 1
+        oneShot u8 0
+        easy u8 1
+        normal u8 1
+        hard u8 1
+        subroutine u8 1
+        delaySeconds i32 0
+        chunk "OrCondition" 1
+          chunk "Condition" 4
+            type i32 3
+            name key "CONDITION_TRUE" 3
+            params i32 0
+        chunk "ScriptAction" 2
+          type i32 190
+          name key "TEAM_EXECUTE_SEQUENTIAL_SCRIPT" 3
+          params i32 2
+          param TEAM 0 0 "<This Team>"
+          param SCRIPT 0 0 "GLA Seq: Attack Back Rush"
+      chunk "Script" 2
         name s "GLA Seq: Attack Back Rush"
         comment s ""
         conditionComment s ""
@@ -151001,6 +151385,13 @@ chunk "PlayerScriptsList" 5
           param TEAM 0 0 "<This Team>"
           param ATTACK_PRIORITY_SET 0 0 "GLA Tech Building Priority"
         chunk "ScriptAction" 2
+          type i32 228
+          name key "TEAM_MOVE_TOWARDS_NEAREST_OBJECT_TYPE" 3
+          params i32 3
+          param TEAM 0 0 "<This Team>"
+          param OBJECT_TYPE 0 0 "TechOilDerrick"
+          param TRIGGER_AREA 0 0 "CombatZone"
+        chunk "ScriptAction" 2
           type i32 278
           name key "TEAM_HUNT_WITH_COMMAND_BUTTON" 3
           params i32 2
@@ -151029,6 +151420,13 @@ chunk "PlayerScriptsList" 5
           params i32 2
           param TEAM 0 0 "<This Team>"
           param ATTACK_PRIORITY_SET 0 0 "GLA Tech Building Priority"
+        chunk "ScriptAction" 2
+          type i32 228
+          name key "TEAM_MOVE_TOWARDS_NEAREST_OBJECT_TYPE" 3
+          params i32 3
+          param TEAM 0 0 "<This Team>"
+          param OBJECT_TYPE 0 0 "TechOilDerrick"
+          param TRIGGER_AREA 0 0 "CombatZone"
         chunk "ScriptAction" 2
           type i32 259
           name key "SKIRMISH_WAIT_FOR_COMMANDBUTTON_AVAILABLE_ALL" 3
@@ -157633,7 +158031,7 @@ chunk "PlayerScriptsList" 5
         normal u8 0
         hard u8 1
         subroutine u8 0
-        delaySeconds i32 10
+        delaySeconds i32 7
         chunk "OrCondition" 1
           chunk "Condition" 4
             type i32 3
@@ -162207,6 +162605,29 @@ chunk "PlayerScriptsList" 5
           param TEAM 0 0 "<This Team>"
           param SCRIPT 0 0 "GLA Seq: Attack Back Rush"
       chunk "Script" 2
+        name s "GLA Behavior: Attack Back Rush OC"
+        comment s ""
+        conditionComment s ""
+        actionComment s ""
+        active u8 1
+        oneShot u8 0
+        easy u8 1
+        normal u8 1
+        hard u8 1
+        subroutine u8 1
+        delaySeconds i32 0
+        chunk "OrCondition" 1
+          chunk "Condition" 4
+            type i32 3
+            name key "CONDITION_TRUE" 3
+            params i32 0
+        chunk "ScriptAction" 2
+          type i32 190
+          name key "TEAM_EXECUTE_SEQUENTIAL_SCRIPT" 3
+          params i32 2
+          param TEAM 0 0 "<This Team>"
+          param SCRIPT 0 0 "GLA Seq: Attack Back Rush"
+      chunk "Script" 2
         name s "GLA Seq: Attack Back Rush"
         comment s ""
         conditionComment s ""
@@ -164762,6 +165183,13 @@ chunk "PlayerScriptsList" 5
           params i32 2
           param TEAM 0 0 "<This Team>"
           param ATTACK_PRIORITY_SET 0 0 "GLA Tech Building Priority"
+        chunk "ScriptAction" 2
+          type i32 228
+          name key "TEAM_MOVE_TOWARDS_NEAREST_OBJECT_TYPE" 3
+          params i32 3
+          param TEAM 0 0 "<This Team>"
+          param OBJECT_TYPE 0 0 "TechOilDerrick"
+          param TRIGGER_AREA 0 0 "CombatZone"
         chunk "ScriptAction" 2
           type i32 278
           name key "TEAM_HUNT_WITH_COMMAND_BUTTON" 3
@@ -169949,7 +170377,7 @@ chunk "ScriptTeams" 1
     "teamDestroyedThreshold" real 0.75
     "teamAggressiveness" int 2
     "teamProductionCondition" str "USA Build - Fill Fire Base 1"
-    "teamOnCreateScript" str "USA Behavior - Enter Fire Base"
+    "teamOnCreateScript" str "USA Behavior - Enter Fire Base OC"
     "teamOnDestroyedScript" str ""
     "teamGenericScriptHook0" str "USA Apply Tank Priority"
     "teamUnitType2" str "AmericaInfantryRanger"
@@ -169985,7 +170413,7 @@ chunk "ScriptTeams" 1
     "teamDestroyedThreshold" real 0.75
     "teamAggressiveness" int 2
     "teamProductionCondition" str "USA Build - Fill Fire Base 2"
-    "teamOnCreateScript" str "USA Behavior - Enter Fire Base"
+    "teamOnCreateScript" str "USA Behavior - Enter Fire Base OC"
     "teamOnDestroyedScript" str ""
     "teamGenericScriptHook0" str "USA Apply Tank Priority"
     "teamUnitType2" str "AmericaInfantryRanger"
@@ -170021,7 +170449,7 @@ chunk "ScriptTeams" 1
     "teamDestroyedThreshold" real 1
     "teamAggressiveness" int 2
     "teamProductionCondition" str "_USA_1ST_WAVE_H"
-    "teamOnCreateScript" str "USA Attack Hunt"
+    "teamOnCreateScript" str "USA Attack Hunt OC"
     "teamOnDestroyedScript" str ""
     "teamUnitType2" str "AmericaTankPaladin"
     "teamUnitType3" str "<none>"
@@ -181075,7 +181503,7 @@ chunk "ScriptTeams" 1
     "teamDestroyedThreshold" real 0.75
     "teamAggressiveness" int 2
     "teamProductionCondition" str "USA Build - Fill Fire Base 1"
-    "teamOnCreateScript" str "USA Behavior - Enter Fire Base"
+    "teamOnCreateScript" str "USA Behavior - Enter Fire Base OC"
     "teamOnDestroyedScript" str ""
     "teamGenericScriptHook0" str "USA Apply Tank Priority"
     "teamUnitType2" str "AirF_AmericaInfantryRanger"
@@ -181111,7 +181539,7 @@ chunk "ScriptTeams" 1
     "teamDestroyedThreshold" real 0.75
     "teamAggressiveness" int 2
     "teamProductionCondition" str "USA Build - Fill Fire Base 1"
-    "teamOnCreateScript" str "USA Behavior - Enter Fire Base"
+    "teamOnCreateScript" str "USA Behavior - Enter Fire Base OC"
     "teamOnDestroyedScript" str ""
     "teamGenericScriptHook0" str "USA Apply Tank Priority"
     "teamUnitType2" str "<none>"
@@ -181147,7 +181575,7 @@ chunk "ScriptTeams" 1
     "teamDestroyedThreshold" real 0.75
     "teamAggressiveness" int 2
     "teamProductionCondition" str "USA Build - Fill Fire Base 1"
-    "teamOnCreateScript" str "USA Behavior - Enter Fire Base"
+    "teamOnCreateScript" str "USA Behavior - Enter Fire Base OC"
     "teamOnDestroyedScript" str ""
     "teamGenericScriptHook0" str "USA Apply Tank Priority"
     "teamUnitType2" str "SupW_AmericaInfantryRanger"
@@ -181183,7 +181611,7 @@ chunk "ScriptTeams" 1
     "teamDestroyedThreshold" real 0.75
     "teamAggressiveness" int 2
     "teamProductionCondition" str "USA Build - Fill Fire Base 2"
-    "teamOnCreateScript" str "USA Behavior - Enter Fire Base"
+    "teamOnCreateScript" str "USA Behavior - Enter Fire Base OC"
     "teamOnDestroyedScript" str ""
     "teamGenericScriptHook0" str "USA Apply Tank Priority"
     "teamUnitType2" str "AirF_AmericaInfantryRanger"
@@ -181219,7 +181647,7 @@ chunk "ScriptTeams" 1
     "teamDestroyedThreshold" real 0.75
     "teamAggressiveness" int 2
     "teamProductionCondition" str "USA Build - Fill Fire Base 2"
-    "teamOnCreateScript" str "USA Behavior - Enter Fire Base"
+    "teamOnCreateScript" str "USA Behavior - Enter Fire Base OC"
     "teamOnDestroyedScript" str ""
     "teamGenericScriptHook0" str "USA Apply Tank Priority"
     "teamUnitType2" str "<none>"
@@ -181255,7 +181683,7 @@ chunk "ScriptTeams" 1
     "teamDestroyedThreshold" real 0.75
     "teamAggressiveness" int 2
     "teamProductionCondition" str "USA Build - Fill Fire Base 2"
-    "teamOnCreateScript" str "USA Behavior - Enter Fire Base"
+    "teamOnCreateScript" str "USA Behavior - Enter Fire Base OC"
     "teamOnDestroyedScript" str ""
     "teamGenericScriptHook0" str "USA Apply Tank Priority"
     "teamUnitType2" str "SupW_AmericaInfantryRanger"
@@ -181291,7 +181719,7 @@ chunk "ScriptTeams" 1
     "teamDestroyedThreshold" real 1
     "teamAggressiveness" int 2
     "teamProductionCondition" str "_USA_1ST_WAVE_H"
-    "teamOnCreateScript" str "USA Attack Hunt"
+    "teamOnCreateScript" str "USA Attack Hunt OC"
     "teamOnDestroyedScript" str ""
     "teamUnitType2" str "<none>"
     "teamUnitType3" str "<none>"
@@ -181327,7 +181755,7 @@ chunk "ScriptTeams" 1
     "teamDestroyedThreshold" real 1
     "teamAggressiveness" int 2
     "teamProductionCondition" str "_USA_1ST_WAVE_H"
-    "teamOnCreateScript" str "USA Attack Hunt"
+    "teamOnCreateScript" str "USA Attack Hunt OC"
     "teamOnDestroyedScript" str ""
     "teamUnitType2" str "Lazr_AmericaVehicleHumvee"
     "teamUnitType3" str "Lazr_AmericaTankCrusader"
@@ -185118,7 +185546,7 @@ chunk "ScriptTeams" 1
     "teamDestroyedThreshold" real 1
     "teamAggressiveness" int 2
     "teamProductionCondition" str "_CHINA_1ST_WAVE_H"
-    "teamOnCreateScript" str "China Attack Hunt"
+    "teamOnCreateScript" str "China Attack Hunt OC"
     "teamOnDestroyedScript" str ""
     "teamUnitType2" str "ChinaTankGattling"
     "teamUnitType3" str "ChinaTankDragon"
@@ -187509,7 +187937,7 @@ chunk "ScriptTeams" 1
     "teamDestroyedThreshold" real 1
     "teamAggressiveness" int 2
     "teamProductionCondition" str "_GLA_1ST_WAVE_H"
-    "teamOnCreateScript" str "GLA Behavior: Attack Back Rush"
+    "teamOnCreateScript" str "GLA Behavior: Attack Back Rush OC"
     "teamOnDestroyedScript" str ""
     "teamUnitType2" str "GLAVehicleQuadCannon"
     "teamUnitType3" str "GLATankMarauder"
@@ -187544,7 +187972,7 @@ chunk "ScriptTeams" 1
     "teamDestroyedThreshold" real 1
     "teamAggressiveness" int 2
     "teamProductionCondition" str "_GLA_1ST_WAVE_H"
-    "teamOnCreateScript" str "GLA Behavior: Attack Back Rush"
+    "teamOnCreateScript" str "GLA Behavior: Attack Back Rush OC"
     "teamOnDestroyedScript" str ""
     "teamGenericScriptHook0" str "GLA Apply Supply Lines Priority"
     "teamUnitType2" str "GLAVehicleTechnical"
@@ -196596,7 +197024,7 @@ chunk "ScriptTeams" 1
     "teamDestroyedThreshold" real 1
     "teamAggressiveness" int 2
     "teamProductionCondition" str "_CHINA_1ST_WAVE_H"
-    "teamOnCreateScript" str "China Attack Hunt"
+    "teamOnCreateScript" str "China Attack Hunt OC"
     "teamOnDestroyedScript" str ""
     "teamUnitType2" str "Infa_ChinaInfantryTankHunter"
     "teamUnitType3" str "<none>"
@@ -196631,7 +197059,7 @@ chunk "ScriptTeams" 1
     "teamDestroyedThreshold" real 1
     "teamAggressiveness" int 2
     "teamProductionCondition" str "_CHINA_1ST_WAVE_H"
-    "teamOnCreateScript" str "China Attack Hunt"
+    "teamOnCreateScript" str "China Attack Hunt OC"
     "teamOnDestroyedScript" str ""
     "teamUnitType2" str "Nuke_ChinaVehicleTroopCrawler"
     "teamUnitType3" str "Nuke_ChinaTankGattling"
@@ -196667,7 +197095,7 @@ chunk "ScriptTeams" 1
     "teamDestroyedThreshold" real 1
     "teamAggressiveness" int 2
     "teamProductionCondition" str "_CHINA_1ST_WAVE_H"
-    "teamOnCreateScript" str "China Attack Hunt"
+    "teamOnCreateScript" str "China Attack Hunt OC"
     "teamOnDestroyedScript" str ""
     "teamUnitType2" str "Tank_ChinaTankGattling"
     "teamUnitType3" str "<none>"
@@ -196702,7 +197130,7 @@ chunk "ScriptTeams" 1
     "teamDestroyedThreshold" real 1
     "teamAggressiveness" int 2
     "teamProductionCondition" str "_CHINA_1ST_WAVE_H"
-    "teamOnCreateScript" str "China Attack Hunt"
+    "teamOnCreateScript" str "China Attack Hunt OC"
     "teamOnDestroyedScript" str ""
     "teamGenericScriptHook0" str "China Apply Supply Lines Priority"
     "teamUnitType2" str "<none>"
@@ -211546,7 +211974,7 @@ chunk "ScriptTeams" 1
     "teamInitialIdleFrames" int 0
     "teamExecutesActionsOnCreate" bool 0
     "teamDestroyedThreshold" real 0.5
-    "teamOnCreateScript" str "China Attack Hunt"
+    "teamOnCreateScript" str "China Attack Hunt OC"
     "teamGenericScriptHook0" str "China Apply Power Priority"
   dict 36
     "teamName" str "China H 5W Base Guards. 2"
@@ -211798,7 +212226,7 @@ chunk "ScriptTeams" 1
     "teamAggressiveness" int 2
     "teamProductionCondition" str "China Build Condition - Capture"
     "teamAttackCommonTarget" bool 1
-    "teamOnCreateScript" str "China Behavior: Capture Hunt"
+    "teamOnCreateScript" str "China Behavior: Capture Hunt OC"
     "teamGenericScriptHook0" str "China Apply Capture Priority"
     "teamUnitType2" str "<none>"
   dict 36
@@ -214146,7 +214574,7 @@ chunk "ScriptTeams" 1
     "teamDestroyedThreshold" real 1
     "teamAggressiveness" int 2
     "teamProductionCondition" str "_GLA_1ST_WAVE_H"
-    "teamOnCreateScript" str "GLA Behavior: Attack Back Rush"
+    "teamOnCreateScript" str "GLA Behavior: Attack Back Rush OC"
     "teamOnDestroyedScript" str ""
     "teamUnitType2" str "Demo_GLAVehicleQuadCannon"
     "teamUnitType3" str "<none>"
@@ -214181,7 +214609,7 @@ chunk "ScriptTeams" 1
     "teamDestroyedThreshold" real 1
     "teamAggressiveness" int 2
     "teamProductionCondition" str "_GLA_1ST_WAVE_H"
-    "teamOnCreateScript" str "GLA Behavior: Attack Back Rush"
+    "teamOnCreateScript" str "GLA Behavior: Attack Back Rush OC"
     "teamOnDestroyedScript" str ""
     "teamUnitType2" str "<none>"
     "teamUnitType3" str "<none>"
@@ -214216,7 +214644,7 @@ chunk "ScriptTeams" 1
     "teamDestroyedThreshold" real 1
     "teamAggressiveness" int 2
     "teamProductionCondition" str "_GLA_1ST_WAVE_H"
-    "teamOnCreateScript" str "GLA Behavior: Attack Back Rush"
+    "teamOnCreateScript" str "GLA Behavior: Attack Back Rush OC"
     "teamOnDestroyedScript" str ""
     "teamUnitType2" str "Chem_GLAVehicleQuadCannon"
     "teamUnitType3" str "<none>"
@@ -214251,7 +214679,7 @@ chunk "ScriptTeams" 1
     "teamDestroyedThreshold" real 1
     "teamAggressiveness" int 2
     "teamProductionCondition" str "_GLA_1ST_WAVE_H"
-    "teamOnCreateScript" str "GLA Behavior: Attack Back Rush"
+    "teamOnCreateScript" str "GLA Behavior: Attack Back Rush OC"
     "teamOnDestroyedScript" str ""
     "teamGenericScriptHook0" str "GLA Apply Supply Lines Priority"
     "teamUnitType2" str "Demo_GLAVehicleQuadCannon"
@@ -214287,7 +214715,7 @@ chunk "ScriptTeams" 1
     "teamDestroyedThreshold" real 1
     "teamAggressiveness" int 2
     "teamProductionCondition" str "_GLA_1ST_WAVE_H"
-    "teamOnCreateScript" str "GLA Behavior: Attack Back Rush"
+    "teamOnCreateScript" str "GLA Behavior: Attack Back Rush OC"
     "teamOnDestroyedScript" str ""
     "teamGenericScriptHook0" str "GLA Apply Supply Lines Priority"
     "teamUnitType2" str "<none>"
@@ -214324,7 +214752,7 @@ chunk "ScriptTeams" 1
     "teamDestroyedThreshold" real 1
     "teamAggressiveness" int 2
     "teamProductionCondition" str "_GLA_1ST_WAVE_H"
-    "teamOnCreateScript" str "GLA Behavior: Attack Back Rush"
+    "teamOnCreateScript" str "GLA Behavior: Attack Back Rush OC"
     "teamOnDestroyedScript" str ""
     "teamGenericScriptHook0" str "GLA Apply Supply Lines Priority"
     "teamUnitType2" str "Chem_GLATankScorpion"
