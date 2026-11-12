@@ -1,0 +1,65 @@
+From d1026ba2f4fc5e3fd7c5c53d0904dd951227fd30 Mon Sep 17 00:00:00 2001
+From: Amir Latipov <kimciwork@gmail.com>
+Date: Thu, 12 Nov 2026 22:38:09 +0300
+Subject: [PATCH] feat(ai-lab): AI capture prefers free tech buildings over
+ enemy-held ones
+
+TEAM_MOVE_TOWARDS_NEAREST_OBJECT_TYPE skips enemy-owned objects, and the
+capture hunt halves the priority of enemy-held buildings. On Dust Devil
+capture teams kept dying at the contested center derricks while the free
+corner derrick and refinery stayed untouched.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../GameLogic/Object/Update/CommandButtonHuntUpdate.cpp      | 4 ++++
+ .../Source/GameLogic/ScriptEngine/ScriptActions.cpp          | 5 +++++
+ 2 files changed, 9 insertions(+)
+
+diff --git a/GeneralsMD/Code/GameEngine/Source/GameLogic/Object/Update/CommandButtonHuntUpdate.cpp b/GeneralsMD/Code/GameEngine/Source/GameLogic/Object/Update/CommandButtonHuntUpdate.cpp
+index f3bacba..11a6cf1 100644
+--- a/GeneralsMD/Code/GameEngine/Source/GameLogic/Object/Update/CommandButtonHuntUpdate.cpp
++++ b/GeneralsMD/Code/GameEngine/Source/GameLogic/Object/Update/CommandButtonHuntUpdate.cpp
+@@ -342,6 +342,10 @@ Object* CommandButtonHuntUpdate::scanClosestTarget()
+ 				Real dist = WWMath::SqrtOrigin(distSqr);
+ 				Int curPriority = data->m_scanRange - dist;
+ 				if (info) curPriority = info->getPriority(other->getTemplate());
++				// GeneralsX @feature ai-lab 12/11/2026 Capture: prefer free buildings over enemy-held ones,
++				// which are usually defended (capture teams died one by one at the contested center derricks).
++				if (isCaptureBuilding && curPriority > 1 && me->getRelationship(other) == ENEMIES)
++					curPriority /= 2;
+ 				// GeneralsX @feature ai-lab 09/11/2026 Trace capture hunt candidates.
+ 				if (isCaptureBuilding && AIMatch::traceWanted("Hunt"))
+ 					AIMatch::trace("hunt #%d at (%.0f,%.0f) cand %s #%d (%.0f,%.0f) dist %.0f prio %d",
+diff --git a/GeneralsMD/Code/GameEngine/Source/GameLogic/ScriptEngine/ScriptActions.cpp b/GeneralsMD/Code/GameEngine/Source/GameLogic/ScriptEngine/ScriptActions.cpp
+index 65ed865..752cc0a 100644
+--- a/GeneralsMD/Code/GameEngine/Source/GameLogic/ScriptEngine/ScriptActions.cpp
++++ b/GeneralsMD/Code/GameEngine/Source/GameLogic/ScriptEngine/ScriptActions.cpp
+@@ -5363,6 +5363,9 @@ void ScriptActions::doMoveTeamTowardsNearest( const AsciiString& teamName, const
+ 	Coord3D teamPos = *team->getEstimateTeamPosition();
+ 	PartitionFilterSameMapStatus filterMapStatus( teamObj );
+ 	PartitionFilterPolygonTrigger acceptWithin( trig );
++	// GeneralsX @feature ai-lab 12/11/2026 Skip objects held by enemies: a capture team sent to the nearest
++	// derrick kept walking into an enemy-held, defended one instead of a free one (Dust Devil).
++	PartitionFilterRelationship notEnemy( teamObj, PartitionFilterRelationship::ALLOW_ALLIES | PartitionFilterRelationship::ALLOW_NEUTRAL );
+ 	Object *bestObj = nullptr;
+ 
+ 	const ThingTemplate *templ = TheThingFactory->findTemplate( objectType, FALSE );
+@@ -5374,6 +5377,7 @@ void ScriptActions::doMoveTeamTowardsNearest( const AsciiString& teamName, const
+ 			&thingsToAccept,
+ 			&acceptWithin,
+ 			&filterMapStatus,
++			&notEnemy,
+ 			nullptr
+ 		};
+ 		bestObj = ThePartitionManager->getClosestObject( &teamPos, REALLY_FAR, FROM_CENTER_2D, filters );
+@@ -5401,6 +5405,7 @@ void ScriptActions::doMoveTeamTowardsNearest( const AsciiString& teamName, const
+ 						&thingToAccept,
+ 						&acceptWithin,
+ 						&filterMapStatus,
++						&notEnemy,
+ 						nullptr
+ 					};
+ 
+-- 
+2.54.0 (Apple Git-157)
+

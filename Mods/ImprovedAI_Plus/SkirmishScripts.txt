@@ -14600,7 +14600,7 @@ chunk "PlayerScriptsList" 5
             params i32 3
             param COUNTER 0 0 "_ESCALATION"
             param COMPARISON 3 0 ""
-            param INT 100 0 ""
+            param INT 143 0 ""
         chunk "ScriptAction" 2
           type i32 204
           name key "TEAM_GUARD_AREA" 3
@@ -14632,7 +14632,7 @@ chunk "PlayerScriptsList" 5
             params i32 3
             param COUNTER 0 0 "_ESCALATION"
             param COMPARISON 3 0 ""
-            param INT 100 0 ""
+            param INT 143 0 ""
         chunk "ScriptAction" 2
           type i32 1
           name key "SET_FLAG" 3
@@ -28151,7 +28151,7 @@ chunk "PlayerScriptsList" 5
             params i32 3
             param COUNTER 0 0 "_ESCALATION"
             param COMPARISON 3 0 ""
-            param INT 100 0 ""
+            param INT 143 0 ""
         chunk "ScriptAction" 2
           type i32 204
           name key "TEAM_GUARD_AREA" 3
@@ -28183,7 +28183,7 @@ chunk "PlayerScriptsList" 5
             params i32 3
             param COUNTER 0 0 "_ESCALATION"
             param COMPARISON 3 0 ""
-            param INT 100 0 ""
+            param INT 143 0 ""
         chunk "ScriptAction" 2
           type i32 1
           name key "SET_FLAG" 3
@@ -41787,7 +41787,7 @@ chunk "PlayerScriptsList" 5
             params i32 3
             param COUNTER 0 0 "_ESCALATION"
             param COMPARISON 3 0 ""
-            param INT 100 0 ""
+            param INT 143 0 ""
         chunk "ScriptAction" 2
           type i32 204
           name key "TEAM_GUARD_AREA" 3
@@ -41819,7 +41819,7 @@ chunk "PlayerScriptsList" 5
             params i32 3
             param COUNTER 0 0 "_ESCALATION"
             param COMPARISON 3 0 ""
-            param INT 100 0 ""
+            param INT 143 0 ""
         chunk "ScriptAction" 2
           type i32 1
           name key "SET_FLAG" 3
@@ -55541,7 +55541,7 @@ chunk "PlayerScriptsList" 5
             params i32 3
             param COUNTER 0 0 "_ESCALATION"
             param COMPARISON 3 0 ""
-            param INT 100 0 ""
+            param INT 143 0 ""
         chunk "ScriptAction" 2
           type i32 204
           name key "TEAM_GUARD_AREA" 3
@@ -55573,7 +55573,7 @@ chunk "PlayerScriptsList" 5
             params i32 3
             param COUNTER 0 0 "_ESCALATION"
             param COMPARISON 3 0 ""
-            param INT 100 0 ""
+            param INT 143 0 ""
         chunk "ScriptAction" 2
           type i32 1
           name key "SET_FLAG" 3
@@ -69527,7 +69527,7 @@ chunk "PlayerScriptsList" 5
             params i32 3
             param COUNTER 0 0 "_ESCALATION"
             param COMPARISON 3 0 ""
-            param INT 100 0 ""
+            param INT 143 0 ""
         chunk "ScriptAction" 2
           type i32 204
           name key "TEAM_GUARD_AREA" 3
@@ -69559,7 +69559,7 @@ chunk "PlayerScriptsList" 5
             params i32 3
             param COUNTER 0 0 "_ESCALATION"
             param COMPARISON 3 0 ""
-            param INT 100 0 ""
+            param INT 143 0 ""
         chunk "ScriptAction" 2
           type i32 1
           name key "SET_FLAG" 3
@@ -83475,7 +83475,7 @@ chunk "PlayerScriptsList" 5
             params i32 3
             param COUNTER 0 0 "_ESCALATION"
             param COMPARISON 3 0 ""
-            param INT 100 0 ""
+            param INT 143 0 ""
         chunk "ScriptAction" 2
           type i32 204
           name key "TEAM_GUARD_AREA" 3
@@ -83507,7 +83507,7 @@ chunk "PlayerScriptsList" 5
             params i32 3
             param COUNTER 0 0 "_ESCALATION"
             param COMPARISON 3 0 ""
-            param INT 100 0 ""
+            param INT 143 0 ""
         chunk "ScriptAction" 2
           type i32 1
           name key "SET_FLAG" 3
@@ -97039,7 +97039,7 @@ chunk "PlayerScriptsList" 5
             params i32 3
             param COUNTER 0 0 "_ESCALATION"
             param COMPARISON 3 0 ""
-            param INT 100 0 ""
+            param INT 143 0 ""
         chunk "ScriptAction" 2
           type i32 204
           name key "TEAM_GUARD_AREA" 3
@@ -97071,7 +97071,7 @@ chunk "PlayerScriptsList" 5
             params i32 3
             param COUNTER 0 0 "_ESCALATION"
             param COMPARISON 3 0 ""
-            param INT 100 0 ""
+            param INT 143 0 ""
         chunk "ScriptAction" 2
           type i32 1
           name key "SET_FLAG" 3
@@ -110757,7 +110757,7 @@ chunk "PlayerScriptsList" 5
             params i32 3
             param COUNTER 0 0 "_ESCALATION"
             param COMPARISON 3 0 ""
-            param INT 100 0 ""
+            param INT 143 0 ""
         chunk "ScriptAction" 2
           type i32 204
           name key "TEAM_GUARD_AREA" 3
@@ -110789,7 +110789,7 @@ chunk "PlayerScriptsList" 5
             params i32 3
             param COUNTER 0 0 "_ESCALATION"
             param COMPARISON 3 0 ""
-            param INT 100 0 ""
+            param INT 143 0 ""
         chunk "ScriptAction" 2
           type i32 1
           name key "SET_FLAG" 3
@@ -124513,7 +124513,7 @@ chunk "PlayerScriptsList" 5
             params i32 3
             param COUNTER 0 0 "_ESCALATION"
             param COMPARISON 3 0 ""
-            param INT 100 0 ""
+            param INT 143 0 ""
         chunk "ScriptAction" 2
           type i32 204
           name key "TEAM_GUARD_AREA" 3
@@ -124545,7 +124545,7 @@ chunk "PlayerScriptsList" 5
             params i32 3
             param COUNTER 0 0 "_ESCALATION"
             param COMPARISON 3 0 ""
-            param INT 100 0 ""
+            param INT 143 0 ""
         chunk "ScriptAction" 2
           type i32 1
           name key "SET_FLAG" 3
@@ -138060,7 +138060,7 @@ chunk "PlayerScriptsList" 5
             params i32 3
             param COUNTER 0 0 "_ESCALATION"
             param COMPARISON 3 0 ""
-            param INT 100 0 ""
+            param INT 143 0 ""
         chunk "ScriptAction" 2
           type i32 204
           name key "TEAM_GUARD_AREA" 3
@@ -138092,7 +138092,7 @@ chunk "PlayerScriptsList" 5
             params i32 3
             param COUNTER 0 0 "_ESCALATION"
             param COMPARISON 3 0 ""
-            param INT 100 0 ""
+            param INT 143 0 ""
         chunk "ScriptAction" 2
           type i32 1
           name key "SET_FLAG" 3
@@ -151473,7 +151473,7 @@ chunk "PlayerScriptsList" 5
             params i32 3
             param COUNTER 0 0 "_ESCALATION"
             param COMPARISON 3 0 ""
-            param INT 100 0 ""
+            param INT 143 0 ""
         chunk "ScriptAction" 2
           type i32 204
           name key "TEAM_GUARD_AREA" 3
@@ -151505,7 +151505,7 @@ chunk "PlayerScriptsList" 5
             params i32 3
             param COUNTER 0 0 "_ESCALATION"
             param COMPARISON 3 0 ""
-            param INT 100 0 ""
+            param INT 143 0 ""
         chunk "ScriptAction" 2
           type i32 1
           name key "SET_FLAG" 3
@@ -165229,7 +165229,7 @@ chunk "PlayerScriptsList" 5
             params i32 3
             param COUNTER 0 0 "_ESCALATION"
             param COMPARISON 3 0 ""
-            param INT 100 0 ""
+            param INT 143 0 ""
         chunk "ScriptAction" 2
           type i32 204
           name key "TEAM_GUARD_AREA" 3
@@ -165261,7 +165261,7 @@ chunk "PlayerScriptsList" 5
             params i32 3
             param COUNTER 0 0 "_ESCALATION"
             param COMPARISON 3 0 ""
-            param INT 100 0 ""
+            param INT 143 0 ""
         chunk "ScriptAction" 2
           type i32 1
           name key "SET_FLAG" 3
