@@ -1,7 +1,7 @@
 From c348fb1664e966f0a555f0eee480c480ec92ce02 Mon Sep 17 00:00:00 2001
 From: Amir Latipov <kimciwork@gmail.com>
 Date: Thu, 12 Nov 2026 16:24:32 +0300
-Subject: [PATCH] feat(ai-lab): AI_LAB_TRACE=ScriptErr prints script engine
+Subject: [PATCH 4/7] feat(ai-lab): AI_LAB_TRACE=ScriptErr prints script engine
  debug messages
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>

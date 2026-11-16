@@ -1,0 +1,255 @@
+From a09d187453692e0ef7b0840d92e456c511e6f4ba Mon Sep 17 00:00:00 2001
+From: Amir Latipov <kimciwork@gmail.com>
+Date: Mon, 16 Nov 2026 10:42:14 +0300
+Subject: [PATCH 7/7] feat(ai-lab): skirmish AI commander for the idle army,
+ tempo from scripts
+
+Enabled per player by the script counter _AILAB_COMMANDER. Every 5 s the
+commander hits enemies inside our base, otherwise attacks the nearest
+enemy building whose defence is at most 0.7 of the free army, with a
+minimum army value of 2000 and a 45 s breather between attacks.
+Period and breather scale with the script counter _AILAB_TEMPO (percent,
+set by tools/ai_tempo.py), so the bot's pace changes without a rebuild.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../Include/GameLogic/AISkirmishPlayer.h      |   3 +
+ .../Source/GameLogic/AI/AISkirmishPlayer.cpp  | 192 +++++++++++++++++-
+ 2 files changed, 194 insertions(+), 1 deletion(-)
+
+diff --git a/GeneralsMD/Code/GameEngine/Include/GameLogic/AISkirmishPlayer.h b/GeneralsMD/Code/GameEngine/Include/GameLogic/AISkirmishPlayer.h
+index a89b6f7..2923d9b 100644
+--- a/GeneralsMD/Code/GameEngine/Include/GameLogic/AISkirmishPlayer.h
++++ b/GeneralsMD/Code/GameEngine/Include/GameLogic/AISkirmishPlayer.h
+@@ -113,5 +113,8 @@ protected:
+ 
+ 	UnsignedInt m_frameToCheckEnemy;
+ 	Player			*m_currentEnemy;
++	// GeneralsX @feature ai-lab 14/11/2026 Commander of the free army: no new attack before this frame (a breather for
++	// the enemy). Not saved: after loading a game the commander may attack at once.
++	UnsignedInt m_commanderNextAttackFrame;
+ 
+ };
+diff --git a/GeneralsMD/Code/GameEngine/Source/GameLogic/AI/AISkirmishPlayer.cpp b/GeneralsMD/Code/GameEngine/Source/GameLogic/AI/AISkirmishPlayer.cpp
+index 0a84d33..03f61c1 100644
+--- a/GeneralsMD/Code/GameEngine/Source/GameLogic/AI/AISkirmishPlayer.cpp
++++ b/GeneralsMD/Code/GameEngine/Source/GameLogic/AI/AISkirmishPlayer.cpp
+@@ -55,6 +55,9 @@
+ #include "GameLogic/ScriptEngine.h"
+ #include "GameLogic/Module/ProductionUpdate.h"
+ #include "GameClient/TerrainVisual.h"
++#include "Common/AIMatch.h" // GeneralsX @feature ai-lab 12/11/2026
++#include "GameLogic/Module/BodyModule.h"
++#include "GameLogic/Weapon.h"
+ 
+ 
+ #define USE_DOZER 1
+@@ -75,7 +78,8 @@ m_curLeftFlankRightDefenseAngle(0),
+ m_curRightFlankLeftDefenseAngle(0),
+ m_curRightFlankRightDefenseAngle(0),
+ m_frameToCheckEnemy(0),
+-m_currentEnemy(nullptr)
++m_currentEnemy(nullptr),
++m_commanderNextAttackFrame(0)
+ 
+ {
+ 	m_frameLastBuildingBuilt = TheGameLogic->getFrame();
+@@ -952,9 +956,195 @@ void AISkirmishPlayer::doTeamBuilding()
+ /**
+  * Perform computer-controlled player AI
+  */
++// GeneralsX @feature ai-lab 12/11/2026 Commander of the free army.
++// Skirmish scripts send armies by timers (escalation thresholds) and never look at the balance of forces,
++// so units that are not in an attack wave stand at base for the whole game. Every few seconds the commander
++// takes the free army (idle units, units guarding the base while waiting for their wave) and decides:
++// defend the base if enemies are in it, attack the closest enemy structure it can win at, or keep gathering.
++// It runs only for players whose scripts set the counter _AILAB_COMMANDER (Improved AI Plus), so the
++// original Improved AI keeps its behaviour on the same engine.
++namespace
++{
++const UnsignedInt COMMANDER_PERIOD = 5 * LOGICFRAMES_PER_SECOND;			// at tempo 100, see commanderTempo
++const Real COMMANDER_MIN_ATTACK_VALUE = 2000.0f;		// cost of the free army needed before attacking
++const Real COMMANDER_WIN_RATIO = 0.7f;							// attack a target only if its defence is below this share of the army
++const Real COMMANDER_TARGET_RADIUS = 400.0f;				// defence counted around a target structure
++const Real COMMANDER_BASE_MARGIN = 300.0f;					// beyond the build list radius, still "at base"
++const Real COMMANDER_THREAT_MARGIN = 400.0f;				// enemies this close to the base are a threat
++const Real COMMANDER_CASH_BONUS = 400.0f;						// prefer derricks, supply centers and other cash generators
++const UnsignedInt COMMANDER_ATTACK_COOLDOWN = 45 * LOGICFRAMES_PER_SECOND;	// breather between attacks at tempo 100, the army gathers meanwhile
++
++Bool isArmyUnit(const Object *obj)
++{
++	if (obj->isEffectivelyDead() || obj->getContainedBy() || !obj->getAI() || !obj->isAbleToAttack())
++		return FALSE;
++	return !obj->isKindOf(KINDOF_STRUCTURE) && !obj->isKindOf(KINDOF_DOZER) && !obj->isKindOf(KINDOF_HARVESTER) &&
++		!obj->isKindOf(KINDOF_AIRCRAFT) && !obj->isKindOf(KINDOF_DRONE) && !obj->isKindOf(KINDOF_PROJECTILE) &&
++		!obj->isKindOf(KINDOF_MINE);
++}
++
++Real combatValue(const Object *obj)
++{
++	Real value = (Real)obj->getTemplate()->calcCostToBuild(obj->getControllingPlayer());
++	const BodyModuleInterface *body = obj->getBodyModule();
++	if (body && body->getMaxHealth() > 0.0f)
++		value *= body->getHealth() / body->getMaxHealth();
++	return value;
++}
++
++// ponytail: defenders are recognised by team name (Improved AI naming). A team flag in the .scb would be exact.
++Bool isReservedTeam(const Team *team)
++{
++	static const char *const reserved[] = { "Guard", "Defender", "Base Def", "Bunker", "Garrison", "Hacker", "Hijacker",
++		"Capture", "Alert", "Expander", "Dozer", "Worker" };
++	const char *name = team->getName().str();
++	for (size_t i = 0; i < ARRAY_SIZE(reserved); ++i)
++		if (strstr(name, reserved[i]))
++			return TRUE;
++	return FALSE;
++}
++
++Real dist2D(const Coord3D &a, const Coord3D &b)
++{
++	return sqrtf(sqr(a.x - b.x) + sqr(a.y - b.y));
++}
++
++struct Valued
++{
++	const Object *obj;
++	Real value;
++};
++
++// GeneralsX @feature ai-lab 14/11/2026 Tempo of the commander in percent, from the script counter _AILAB_TEMPO
++// (Plus scripts set it, tools/ai_tempo.py changes it): 110 = period and breather 10% longer. No counter = 100.
++Int commanderTempo(Player *me)
++{
++	AsciiString name;
++	name.format("_AILAB_TEMPO%d", me->getMpStartIndex());
++	const TCounter *tempo = TheScriptEngine->getCounter(name);
++	return (tempo && tempo->value > 0) ? tempo->value : 100;
++}
++
++void runCommander(Player *me, const Coord3D &base, Real baseRadius, UnsignedInt &nextAttackFrame, UnsignedInt cooldown)
++{
++	std::vector<Object *> free;
++	std::vector<Valued> enemyArmy, enemyDefense;
++	std::vector<const Object *> enemyStructures;
++	Real freeValue = 0.0f;
++	for (Object *obj = TheGameLogic->getFirstObject(); obj; obj = obj->getNextObject())
++	{
++		Player *owner = obj->getControllingPlayer();
++		if (!owner)
++			continue;
++		if (owner == me)
++		{
++			if (!isArmyUnit(obj) || (obj->getTeam() && isReservedTeam(obj->getTeam())))
++				continue;
++			AIStateType state = obj->getAI()->getAIStateType();
++			Bool atBase = dist2D(*obj->getPosition(), base) <= baseRadius + COMMANDER_BASE_MARGIN;
++			if (state == AI_IDLE || (state == AI_GUARD && atBase))
++			{
++				free.push_back(obj);
++				freeValue += combatValue(obj);
++			}
++			continue;
++		}
++		if (me->getRelationship(owner->getDefaultTeam()) != ENEMIES || obj->isEffectivelyDead())
++			continue;
++		if (obj->isKindOf(KINDOF_STRUCTURE))
++		{
++			if (obj->isKindOf(KINDOF_FS_BASE_DEFENSE) && obj->isAbleToAttack())
++				enemyDefense.push_back(Valued{ obj, combatValue(obj) });
++			if (!obj->isKindOf(KINDOF_MINE) && !obj->isKindOf(KINDOF_DEMOTRAP) && !obj->isKindOf(KINDOF_BOOBY_TRAP) && !obj->isKindOf(KINDOF_INERT))
++				enemyStructures.push_back(obj);
++		}
++		else if (isArmyUnit(obj))
++			enemyArmy.push_back(Valued{ obj, combatValue(obj) });
++	}
++	if (free.empty())
++		return;
++
++	// Defend: the enemy army closest to the base, if it is inside the base.
++	const Object *threat = nullptr;
++	Real threatDist = baseRadius + COMMANDER_THREAT_MARGIN;
++	for (size_t i = 0; i < enemyArmy.size(); ++i)
++	{
++		Real d = dist2D(*enemyArmy[i].obj->getPosition(), base);
++		if (d < threatDist)
++		{
++			threatDist = d;
++			threat = enemyArmy[i].obj;
++		}
++	}
++
++	const Object *target = threat;
++	Real targetDefense = 0.0f;
++	const char *decision = "defend";
++	if (!threat)
++	{
++		decision = TheGameLogic->getFrame() < nextAttackFrame ? "rest" : "hold";
++		Real bestScore = 0.0f;
++		if (TheGameLogic->getFrame() >= nextAttackFrame && freeValue >= COMMANDER_MIN_ATTACK_VALUE)
++		{
++			for (size_t s = 0; s < enemyStructures.size(); ++s)
++			{
++				const Coord3D &pos = *enemyStructures[s]->getPosition();
++				Real defense = 0.0f;
++				for (size_t i = 0; i < enemyArmy.size(); ++i)
++					if (dist2D(*enemyArmy[i].obj->getPosition(), pos) <= COMMANDER_TARGET_RADIUS)
++						defense += enemyArmy[i].value;
++				for (size_t i = 0; i < enemyDefense.size(); ++i)
++					if (dist2D(*enemyDefense[i].obj->getPosition(), pos) <= COMMANDER_TARGET_RADIUS)
++						defense += enemyDefense[i].value;
++				if (defense > COMMANDER_WIN_RATIO * freeValue)
++					continue;
++				Real score = dist2D(base, pos) - (enemyStructures[s]->isKindOf(KINDOF_CASH_GENERATOR) ? COMMANDER_CASH_BONUS : 0.0f);
++				if (!target || score < bestScore)
++				{
++					target = enemyStructures[s];
++					targetDefense = defense;
++					bestScore = score;
++				}
++			}
++			if (target)
++			{
++				decision = "attack";
++				nextAttackFrame = TheGameLogic->getFrame() + cooldown;
++			}
++		}
++	}
++
++	if (AIMatch::traceWanted("Commander"))
++		AIMatch::trace("commander %s: %s free %d value %.0f enemy army %d target %s #%d (%.0f, %.0f) defense %.0f",
++			TheNameKeyGenerator->keyToName(me->getPlayerNameKey()).str(), decision, (int)free.size(), freeValue,
++			(int)enemyArmy.size(), target ? target->getTemplate()->getName().str() : "-", target ? (int)target->getID() : -1,
++			target ? target->getPosition()->x : 0.0f, target ? target->getPosition()->y : 0.0f, targetDefense);
++	if (!target)
++		return;
++
++	AIGroupPtr group = TheAI->createGroup();
++	if (!group)
++		return;
++	for (size_t i = 0; i < free.size(); ++i)
++		group->add(free[i]);
++	group->groupAttackMoveToPosition(target->getPosition(), NO_MAX_SHOTS_LIMIT, CMD_FROM_AI);
++}
++} // namespace
++
+ void AISkirmishPlayer::update()
+ {
+ 	AIPlayer::update();
++
++	// GeneralsX @feature ai-lab 12/11/2026 Commander of the free army (see runCommander).
++	const Int tempo = m_baseCenterSet ? commanderTempo(m_player) : 100;
++	if (m_baseCenterSet && (TheGameLogic->getFrame() + m_player->getPlayerIndex()) % (COMMANDER_PERIOD * tempo / 100) == 0)
++	{
++		AsciiString counter;
++		counter.format("_AILAB_COMMANDER%d", m_player->getMpStartIndex());
++		const TCounter *on = TheScriptEngine->getCounter(counter);
++		if (on && on->value > 0)
++			runCommander(m_player, m_baseCenter, m_baseRadius, m_commanderNextAttackFrame, COMMANDER_ATTACK_COOLDOWN * tempo / 100);
++	}
+ }
+ 
+ //----------------------------------------------------------------------------------------------------------
+-- 
+2.54.0 (Apple Git-157)
+
