@@ -24,6 +24,7 @@ Zero Hour на движке GeneralsX (порт открытых исходни�
 ├── Запустить Zero Hour (Improved AI).command  # запуск с модом
 ├── Запустить Zero Hour (Improved AI Plus).command  # запуск со своим ИИ
 ├── Запустить Zero Hour (Improved AI Plus, свой движок).command  # свой ИИ на сборке ai-lab
+├── Запустить Zero Hour Reforged.command    # другой движок (Reforged), данные из этой папки
 ├── tools/bigx.py                            # распаковщик архивов .big
 ├── tools/scb.py                             # SkirmishScripts.scb <-> текст
 ├── tools/ai_tempo.py                        # темп бота Plus: замедлить/ускорить на X%
@@ -79,6 +80,18 @@ Git: вся папка - один репозиторий, ветка `master`, r
 ## Обновление GeneralsX
 
 `gh release download -R fbraz3/GeneralsX -p 'macOS-GeneralsXZH.zip'`, распаковать, заменить `GeneralsXZH.app`. Данные и ярлыки не трогать. После обновления проверить, что `run.sh` всё ещё читает `CNC_GENERALS_PATH` и `CNC_GENERALS_ZH_PATH`.
+
+## Zero Hour Reforged (второй движок, рядом)
+
+Поставлен 2026-11-22. https://github.com/olcayseygan/CnCGeneralsZH-Reforged: исходники EA, доработанные как игра (около 60 исправлений, новый интерфейс, ИИ строит базу, фракция Turkiye, рендер Metal через SDL3). На Mac только сборка из исходников.
+
+- Исходники и сборка: `~/Games/Generals-Reforged`, это наш форк https://github.com/kimci621/generals-zh-next (публичный, GPL-3): `origin` - наш, `upstream` - автор. Ветка `main` = тег `v4.2.0` + наши коммиты, история автора полная. Результат сборки `build-mac/Zero Hour Reforged.app`. Сборка `./build-macos.sh`, только упаковка `ninja -C build-mac macos_app`. Новые релизы автора вливать в `main` из `upstream` только по тегам.
+- На v4.2.0 с Apple clang 21 сборка не проходит. Поверх тега взяты три правки из `main` (закоммичены в `main` форка): `W3DAssetManager.cpp` (`.Peek_Buffer()` в строке с `Get_Texture_Name()`), `Tools/macos-app-licenses.txt` и `Tools/package-common.sh` (лицензия mbedtls). Ещё взят коммит автора `166a1ef00`: без него `stage-overlay.sh` не кладёт в `.app` модели Турции (`Art/W3D`) и звуки (`Data/Audio`), и в классической графике Турция невидима. При переходе на новый тег проверить, что они уже в нём.
+- Данные: наши `GeneralsZH` и `Generals`, игра в них не пишет. Пути в `~/Library/Application Support/Command and Conquer Generals Zero Hour Data/Registry.ini` (`InstallPath`, `Generals\InstallPath`), ярлык ещё передаёт `-root`. Там же сохранения и настройки Reforged, с GeneralsX не пересекаются.
+- Улучшенная графика: 14 файлов `Reforged*.big` (~10 ГБ) в `.../Command and Conquer Generals Zero Hour Data/ReforgedArt/`. Берутся с канала лаунчера `https://zerohour.gg/gzhr/` (адрес из Windows-лаунчера), публичного релиза с артом нет: `ZHR_CHANNEL_URL=https://zerohour.gg/gzhr/ ./build-macos.sh` качает их в `GeneralsMD/Run/` с проверкой sha256, потом перенести в `ReforgedArt/`.
+- Полезные флаги: `-win`, `-language russian`, `-autoskirmish <2-8> -aidiff hard`, `-headless`. Строка `refused to delete "Data\INI\INIZH.big"` в логе нормальна: старый код игры пытается удалить файл, Reforged не даёт.
+- Не запускать одновременно с ярлыками Improved AI: они на время игры подменяют файлы в `GeneralsZH`.
+- Фракция Россия делается в форке `~/Games/Generals-Reforged`. План для агента: `docs/russia/AGENT_PLAN.md`. Пользователь пишет «делай» или «продолжай» и ничего не ждёт ответа: открыть этот файл и идти по его протоколу (PROTOCOL). `docs/russia/plan.html` - замороженный документ для человека, агенту его не читать.
 
 ## ai-lab: полигон ИИ против ИИ
 
